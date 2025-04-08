@@ -121,11 +121,8 @@ class AIService {
           const lesson = await this.generateLesson(topic, difficulty);
           
           // Format response with lesson details and ID for redirect
-          response = JSON.stringify({
-            type: 'new_lesson',
-            lessonId: lesson.id,
-            lessonTitle: lesson.title
-          });
+          // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
+          response = `I've created a new lesson about ${topic}. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
         } catch (error: any) {
           console.error('Error creating new lesson:', error);
           response = `I'm sorry, I couldn't create a lesson about ${topic}. Error: ${error.message}`;
