@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { aiService } from "./services/aiService";
+import { WebSocketServer } from "ws";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API routes
@@ -273,5 +274,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Create WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'chat_message') {
+          const { chatId, content, lessonId } = data;
+          
+          // Generate AI response
+          const response = await aiService.generateResponse(content, chatId, lessonId);
+          
+          // Send the response back to the client
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'chat_response',
+              chatId,
+              response
+            }));
+          }
+        }
+      } catch (error: any) {
+        console.error('Error processing WebSocket message:', error);
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'error',
+            error: error.message
+          }));
+        }
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+    });
+  });
+  
   return httpServer;
 }
