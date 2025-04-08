@@ -301,6 +301,22 @@ class AIService {
       }
     }
     
+    // Generate title based on content if possible
+    const lowerMessage = message.toLowerCase();
+    
+    // Check for topic in message
+    if (lowerMessage.includes('array') || lowerMessage.includes('arrays')) {
+      return "Understanding JavaScript Arrays";
+    } else if (lowerMessage.includes('function') || lowerMessage.includes('functions')) {
+      return "Working with Functions";
+    } else if (lowerMessage.includes('loop') || lowerMessage.includes('loops')) {
+      return "Mastering JavaScript Loops";
+    } else if (lowerMessage.includes('variable') || lowerMessage.includes('variables')) {
+      return "JavaScript Variables Explained";
+    } else if (lowerMessage.includes('object') || lowerMessage.includes('objects')) {
+      return "Understanding JavaScript Objects";
+    }
+    
     // Default title if none specified
     return "New Slide";
   }
@@ -318,7 +334,244 @@ class AIService {
       }
     }
     
-    // If no specific content is provided, generate default based on type
+    // Extract topic from message
+    const lowerMessage = message.toLowerCase();
+    let topic = '';
+    
+    if (lowerMessage.includes('array') || lowerMessage.includes('arrays')) {
+      topic = 'arrays';
+    } else if (lowerMessage.includes('function') || lowerMessage.includes('functions')) {
+      topic = 'functions';
+    } else if (lowerMessage.includes('loop') || lowerMessage.includes('loops')) {
+      topic = 'loops';
+    } else if (lowerMessage.includes('variable') || lowerMessage.includes('variables')) {
+      topic = 'variables';
+    } else if (lowerMessage.includes('object') || lowerMessage.includes('objects')) {
+      topic = 'objects';
+    }
+    
+    // If no specific content is provided, generate content based on type and topic
+    if (topic) {
+      return this.generateDetailedContent(topic, type);
+    }
+    
+    // Fallback generic content
+    if (type === 'info') {
+      return "This is an informational slide. The content provides explanations and examples.";
+    } else if (type === 'challenge') {
+      return "This is a coding challenge. Write code to solve the problem described below:\n\n[Challenge description]";
+    } else {
+      return "This is a quiz slide to test your knowledge. Answer the following questions:\n\n1. [Question 1]\n   a) Option A\n   b) Option B\n   c) Option C\n   d) Option D";
+    }
+  }
+  
+  private generateDetailedContent(topic: string, type: 'info' | 'challenge' | 'quiz'): string {
+    if (topic === 'arrays') {
+      if (type === 'info') {
+        return `# Arrays in JavaScript
+
+Arrays are special objects that store multiple values in a single variable. They're like ordered lists that can hold any type of data.
+
+## Creating Arrays
+
+There are two ways to create arrays:
+
+\`\`\`javascript
+// Using array literal (recommended)
+const fruits = ['Apple', 'Banana', 'Orange'];
+
+// Using the Array constructor
+const numbers = new Array(1, 2, 3, 4, 5);
+\`\`\`
+
+## Accessing Array Elements
+
+Array elements are accessed using their index (position). **Indexing starts at 0**:
+
+\`\`\`javascript
+const colors = ['red', 'green', 'blue'];
+console.log(colors[0]); // Output: 'red'
+console.log(colors[2]); // Output: 'blue'
+\`\`\`
+
+## Common Array Methods
+
+* **push()** - Add an element to the end
+* **pop()** - Remove the last element
+* **unshift()** - Add an element to the beginning  
+* **shift()** - Remove the first element
+* **splice()** - Add/remove elements from any position
+* **slice()** - Extract a section without modifying original array
+
+## Array Properties
+
+* **length** - Returns the number of elements
+\`\`\`javascript
+const animals = ['dog', 'cat', 'bird'];
+console.log(animals.length); // Output: 3
+\`\`\`
+
+## Iterating Over Arrays
+
+\`\`\`javascript
+const scores = [85, 92, 78, 90];
+
+// Using for loop
+for (let i = 0; i < scores.length; i++) {
+  console.log(scores[i]);
+}
+
+// Using for...of loop (modern)
+for (let score of scores) {
+  console.log(score);
+}
+
+// Using forEach method
+scores.forEach(score => {
+  console.log(score);
+});
+\`\`\`
+
+Arrays are an essential data structure in JavaScript programming!`;
+      } else if (type === 'challenge') {
+        return `# Array Challenge
+
+Let's practice working with arrays by creating a function that finds the largest number in an array.
+
+## Your Task
+
+Write a function called \`findMax\` that takes an array of numbers as input and returns the largest number in the array.
+
+### Requirements:
+1. The function should work with arrays of any length
+2. If the array is empty, return null or undefined
+3. Use a loop to iterate through the array
+
+### Example:
+\`\`\`javascript
+findMax([5, 2, 9, 1, 7]); // Should return 9
+findMax([0, -5, -2]);     // Should return 0
+findMax([]);              // Should return null or undefined
+\`\`\`
+
+Get coding and good luck!`;
+      } else { // quiz
+        return `# Test Your Knowledge on Arrays
+
+Answer the following questions about JavaScript arrays:
+
+1. What is the output of the following code?
+   \`\`\`javascript
+   const arr = [1, 2, 3];
+   arr[5] = 5;
+   console.log(arr.length);
+   \`\`\`
+   
+   a) 3
+   b) 5
+   c) 6
+   d) Error
+
+2. Which method adds one or more elements to the end of an array?
+   
+   a) unshift()
+   b) push()
+   c) concat()
+   d) append()
+
+3. What's the best way to remove the last element from an array?
+   
+   a) delete arr[arr.length-1]
+   b) arr.length = arr.length - 1
+   c) arr.pop()
+   d) arr.splice(arr.length-1, 1)
+
+4. How do you check if a value exists in an array?
+   
+   a) arr.contains(value)
+   b) arr.has(value)
+   c) arr.includes(value)
+   d) arr.indexOf(value) >= 0
+   
+5. What does the following code return?
+   \`\`\`javascript
+   [1, 2, 3, 4].map(x => x * 2);
+   \`\`\`
+   
+   a) [1, 2, 3, 4, 1, 2, 3, 4]
+   b) [2, 4, 6, 8]
+   c) [1, 4, 9, 16]
+   d) 2
+
+Answers: 1-c, 2-b, 3-c, 4-c (or d), 5-b`;
+      }
+    } else if (topic === 'functions') {
+      if (type === 'info') {
+        return `# JavaScript Functions
+
+Functions are reusable blocks of code designed to perform specific tasks. They help organize your code, make it more reusable, and easier to maintain.
+
+## Declaring Functions
+
+There are several ways to create functions in JavaScript:
+
+### Function Declaration
+\`\`\`javascript
+function greet(name) {
+  return "Hello, " + name + "!";
+}
+\`\`\`
+
+### Function Expression
+\`\`\`javascript
+const greet = function(name) {
+  return "Hello, " + name + "!";
+};
+\`\`\`
+
+### Arrow Function (ES6)
+\`\`\`javascript
+const greet = (name) => {
+  return "Hello, " + name + "!";
+};
+
+// Shorter syntax for simple returns
+const greet = name => "Hello, " + name + "!";
+\`\`\`
+
+## Function Parameters and Arguments
+
+- **Parameters** are variables listed in the function definition
+- **Arguments** are values passed to the function when it's called
+
+\`\`\`javascript
+function add(a, b) { // a and b are parameters
+  return a + b;
+}
+
+add(5, 3); // 5 and 3 are arguments
+\`\`\`
+
+## Return Values
+
+Functions can return values using the \`return\` statement:
+
+\`\`\`javascript
+function multiply(a, b) {
+  return a * b; // Returns the product
+}
+
+const result = multiply(4, 5); // result = 20
+\`\`\`
+
+Functions are one of the most important concepts in JavaScript. They allow you to write reusable, modular code that's easier to test and maintain.`;
+      } else if (type === 'challenge' || type === 'quiz') {
+        // Add challenge and quiz content for functions here
+        return this.generateConceptsContent('functions', 'javascript');
+      }
+    }
+    
+    // Default generic content if topic is not specifically handled
     if (type === 'info') {
       return "This is an informational slide. The content provides explanations and examples.";
     } else if (type === 'challenge') {

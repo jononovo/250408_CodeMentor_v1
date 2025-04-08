@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Chat, Message } from '@/types';
 
 export function useAI(lessonId?: string) {
@@ -75,6 +75,12 @@ export function useAI(lessonId?: string) {
       
       // Add AI response to messages
       setMessages(prev => [...prev, data]);
+      
+      // If this is a lesson chat, refresh the lesson data
+      // This makes sure any slide changes are visible immediately
+      if (lessonId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/lessons/${lessonId}`] });
+      }
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message');
