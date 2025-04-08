@@ -1,0 +1,62 @@
+export interface Lesson {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  language: string;
+  createdAt: number;
+  updatedAt: number;
+  slides: Slide[];
+  estimatedTime?: string;
+}
+
+export interface Slide {
+  id: string;
+  lessonId: string;
+  title: string;
+  content: string;
+  type: 'info' | 'challenge' | 'quiz';
+  order: number;
+  tags: string[];
+  completed?: boolean;
+  initialCode?: string;
+  filename?: string;
+  tests?: {
+    id: string;
+    name: string;
+    description: string;
+    validation: string;
+    type: 'regex' | 'js';
+  }[];
+}
+
+export interface Chat {
+  id: string;
+  lessonId?: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: Message[];
+}
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+}
+
+export interface Test {
+  id: string;
+  name: string;
+  description: string;
+  validation: string;
+  type: 'regex' | 'js';
+}
+
+export interface TestResult {
+  id: string;
+  name: string;
+  passed: boolean;
+  message?: string;
+}

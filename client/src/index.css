@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 246 84% 58%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 326.1 100% 65.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 246 84% 58%;
+    --radius: 0.5rem;
+    --chart-1: 246 84% 58%;
+    --chart-2: 326.1 100% 65.5%;
+    --chart-3: 52.3 100% 50%;
+    --chart-4: 19.4 100% 60.8%;
+    --chart-5: 157.8 100% 45.9%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-md;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary-100 rounded-md;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-200;
+  }
+
+  /* Code editor customizations */
+  .editor-line-numbers {
+    counter-reset: line;
+    user-select: none;
+  }
+  
+  .editor-line-numbers span {
+    counter-increment: line;
+  }
+  
+  .editor-line-numbers span::before {
+    content: counter(line);
+    display: inline-block;
+    width: 1.5rem;
+    text-align: right;
+    margin-right: 0.5rem;
+    @apply text-gray-400;
+  }
+
+  /* Animations */
+  @keyframes bounce-small {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  
+  .animate-bounce-small {
+    animation: bounce-small 2s infinite;
+  }
+  
+  @keyframes slide-in-right {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(0); }
+  }
+  
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out forwards;
+  }
+  
+  @keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+  }
+}
