@@ -13,7 +13,10 @@ export function useAI(lessonId?: string) {
     const loadExistingChat = async () => {
       if (lessonId) {
         try {
-          const response = await apiRequest('GET', `/api/chats/${lessonId}`);
+          // This route gets a chat by lesson ID (not chat ID)
+          // Convert lessonId string from URL to number for API
+          const lessonIdNum = parseInt(lessonId, 10);
+          const response = await apiRequest('GET', `/api/chats/${lessonIdNum}`);
           const data = await response.json();
           setChat(data);
           setMessages(data.messages || []);
@@ -27,7 +30,9 @@ export function useAI(lessonId?: string) {
 
     const createNewChat = async () => {
       try {
-        const response = await apiRequest('POST', '/api/chats', { lessonId });
+        // Make sure lessonId is converted to a number if provided
+        const payload = lessonId ? { lessonId: parseInt(lessonId, 10) } : {};
+        const response = await apiRequest('POST', '/api/chats', payload);
         const data = await response.json();
         setChat(data);
         setMessages(data.messages || []);
@@ -48,9 +53,10 @@ export function useAI(lessonId?: string) {
   const sendMessage = async (content: string) => {
     if (!chat || !content.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
+    // Temporary message for UI only, backend will create the real one
+    const userMessage = {
+      id: -1, // Temporary ID, will be replaced by the real one from the server
+      role: 'user' as const,
       content,
       timestamp: Date.now()
     };

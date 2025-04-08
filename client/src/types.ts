@@ -31,19 +31,19 @@ export interface Slide {
 }
 
 export interface Chat {
-  id: string;
-  lessonId?: string;
+  id: number;
+  lessonId?: number;
   title: string;
-  createdAt: number;
-  updatedAt: number;
+  createdAt: string | number;
+  updatedAt: string | number;
   messages: Message[];
 }
 
 export interface Message {
-  id: string;
+  id: number;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  timestamp: number;
+  timestamp: string | number;
 }
 
 export interface Test {
