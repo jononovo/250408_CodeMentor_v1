@@ -80,6 +80,7 @@ export default function Lesson() {
         slides={lesson.slides}
         currentSlideIndex={currentSlideIndex}
         onSlideChange={setCurrentSlideIndex}
+        format={lesson.format}
         testResults={testResults}
       />
       

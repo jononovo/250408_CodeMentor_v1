@@ -17,11 +17,12 @@ export default function NewLesson() {
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState("beginner");
   const [description, setDescription] = useState("");
+  const [format, setFormat] = useState("markdown");
   const [generating, setGenerating] = useState(false);
 
   // Create a new lesson
   const createLessonMutation = useMutation({
-    mutationFn: async (data: { topic: string; difficulty: string; description: string }) => {
+    mutationFn: async (data: { topic: string; difficulty: string; description: string; format: string }) => {
       const response = await apiRequest("POST", "/api/lessons", data);
       return response.json();
     },
@@ -55,7 +56,7 @@ export default function NewLesson() {
     }
     
     setGenerating(true);
-    createLessonMutation.mutate({ topic, difficulty, description });
+    createLessonMutation.mutate({ topic, difficulty, description, format });
   };
 
   const handleNewLesson = (title: string) => {
@@ -107,6 +108,33 @@ export default function NewLesson() {
                     </Button>
                   ))}
                 </div>
+              </div>
+              
+              <div className="mb-4">
+                <Label htmlFor="format">Lesson Format</Label>
+                <div className="flex mt-1 space-x-2">
+                  <Button
+                    type="button"
+                    variant={format === "markdown" ? "default" : "outline"}
+                    onClick={() => setFormat("markdown")}
+                    className="flex-1"
+                  >
+                    Markdown
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={format === "html" ? "default" : "outline"}
+                    onClick={() => setFormat("html")}
+                    className="flex-1"
+                  >
+                    HTML/CSS/JS
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {format === "html" 
+                    ? "HTML format allows for more interactive slides with custom CSS and JavaScript" 
+                    : "Markdown format is simpler with automatic formatting for code blocks and sections"}
+                </p>
               </div>
               
               <div className="mb-4">

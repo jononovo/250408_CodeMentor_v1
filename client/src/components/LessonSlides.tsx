@@ -9,6 +9,8 @@ export interface Slide {
   content: string;
   type: 'info' | 'challenge' | 'quiz';
   tags: string[];
+  cssContent?: string;
+  jsContent?: string;
   tests?: {
     id: string;
     name: string;
@@ -23,6 +25,7 @@ interface LessonSlidesProps {
   slides: Slide[];
   currentSlideIndex: number;
   onSlideChange: (index: number) => void;
+  format?: 'markdown' | 'html';
   testResults?: {
     id: string;
     name: string;
@@ -36,6 +39,7 @@ export default function LessonSlides({
   slides, 
   currentSlideIndex, 
   onSlideChange,
+  format = 'markdown',
   testResults = []
 }: LessonSlidesProps) {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -83,6 +87,25 @@ export default function LessonSlides({
   // Parse and render the slide content with enhanced formatting and interactivity
   const renderSlideContent = (content: string) => {
     if (!content) return null;
+    
+    // If using HTML format, render the HTML content directly
+    if (format === 'html') {
+      // Create a style tag for CSS content if available
+      const cssStyle = currentSlide.cssContent ? 
+        `<style>${currentSlide.cssContent}</style>` : '';
+      
+      // Create a script tag for JS content if available
+      const jsScript = currentSlide.jsContent ? 
+        `<script>${currentSlide.jsContent}</script>` : '';
+      
+      // Combine HTML, CSS and JS
+      const fullHtml = `${cssStyle}${content}${jsScript}`;
+      
+      // Use dangerouslySetInnerHTML to render the HTML content
+      return (
+        <div className="html-content" dangerouslySetInnerHTML={{ __html: fullHtml }} />
+      );
+    }
     
     // Enhanced parser for markdown-like content with more interactive elements
     const paragraphs = content.split('\n\n');

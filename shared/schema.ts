@@ -9,6 +9,7 @@ export const lessons = pgTable("lessons", {
   description: text("description"),
   difficulty: text("difficulty").notNull().default("beginner"),
   language: text("language").notNull().default("javascript"),
+  format: text("format").notNull().default("markdown"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   estimatedTime: text("estimated_time"),
@@ -32,6 +33,8 @@ export const slides = pgTable("slides", {
   completed: boolean("completed").notNull().default(false),
   initialCode: text("initial_code"),
   filename: text("filename"),
+  cssContent: text("css_content"),
+  jsContent: text("js_content"),
   tests: json("tests").$type<{
     id: string;
     name: string;

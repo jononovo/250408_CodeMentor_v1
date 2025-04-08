@@ -43,14 +43,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/lessons", async (req, res) => {
     try {
-      const { topic, difficulty, description } = req.body;
+      const { topic, difficulty, description, format } = req.body;
       
       if (!topic) {
         return res.status(400).json({ message: "Topic is required" });
       }
 
       // Generate a lesson using AI with the Restack OpenAI integration
-      const generatedLesson = await restackOpenAIService.generateLesson(topic, difficulty);
+      const generatedLesson = await restackOpenAIService.generateLesson(topic, difficulty, format, description);
       
       // Create lesson in storage
       const lesson = await storage.createLesson({
@@ -58,6 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: generatedLesson.description,
         difficulty: difficulty || "beginner",
         language: generatedLesson.language || "javascript",
+        format: format || "markdown",
         estimatedTime: generatedLesson.estimatedTime || "15 min",
       });
 
@@ -74,6 +75,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tags: slideData.tags || [],
             initialCode: slideData.initialCode,
             filename: slideData.filename,
+            cssContent: slideData.cssContent,
+            jsContent: slideData.jsContent,
             tests: slideData.tests || [],
           });
         }
@@ -102,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const order = slides.length;
       
       // Extract slide data from request
-      const { title, content, type, tags, initialCode, filename, tests } = req.body;
+      const { title, content, type, tags, initialCode, filename, cssContent, jsContent, tests } = req.body;
       
       // Create the new slide
       const newSlide = await storage.createSlide({
@@ -114,6 +117,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tags: tags || [],
         initialCode,
         filename,
+        cssContent,
+        jsContent,
         tests: tests || []
       });
       

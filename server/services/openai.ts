@@ -112,15 +112,21 @@ export async function generateToolResponse(
 export async function generateLesson(
   topic: string,
   difficulty: string = "beginner",
+  format: string = "markdown",
   description?: string
 ) {
   try {
     const prompt = `Create an interactive coding lesson for teenagers about ${topic}.
     
 Difficulty level: ${difficulty}
+Format: ${format}
 ${description ? `Description: ${description}` : ""}
 
 The lesson should be engaging, informative, and include challenges that build upon the concepts taught.
+${format === 'html' 
+  ? 'For HTML format, each slide should include custom HTML content, and may also include CSS and JavaScript to create interactive elements.'
+  : 'For Markdown format, use standard markdown formatting for content.'}
+
 Format the response as a JSON object with the following structure:
 {
   "title": "Lesson title",
@@ -130,11 +136,13 @@ Format the response as a JSON object with the following structure:
   "slides": [
     {
       "title": "Slide title",
-      "content": "Slide content with markdown formatting",
+      "content": "${format === 'html' ? 'HTML content for the slide' : 'Slide content with markdown formatting'}",
       "type": "info or challenge or quiz",
       "tags": ["tag1", "tag2"],
       "initialCode": "starter code for challenges (if applicable)",
       "filename": "filename for code (if applicable)",
+      ${format === 'html' ? `"cssContent": "CSS styles for the slide (if applicable)",
+      "jsContent": "JavaScript code for interactivity (if applicable)",` : ''}
       "tests": [
         {
           "id": "unique test id",

@@ -4,6 +4,7 @@ export interface Lesson {
   description: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   language: string;
+  format: 'markdown' | 'html';
   createdAt: number;
   updatedAt: number;
   slides: Slide[];
@@ -21,6 +22,8 @@ export interface Slide {
   completed?: boolean;
   initialCode?: string;
   filename?: string;
+  cssContent?: string;
+  jsContent?: string;
   tests?: {
     id: string;
     name: string;
