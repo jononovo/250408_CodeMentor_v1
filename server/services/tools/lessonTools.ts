@@ -1,228 +1,148 @@
-import { Tool } from "../openai";
-import { storage } from "../../storage";
-import { generateLesson } from "../openai";
-import { InsertLesson } from "@shared/schema";
+import { storage } from '../../storage';
 
 /**
- * Tool definitions for lesson-related operations
+ * Get details about a specific lesson
  */
-export const lessonTools = {
-  definitions: [
-    {
-      type: "function",
-      function: {
-        name: "createLesson",
-        description: "Create a new coding lesson for a specific topic and difficulty level",
-        parameters: {
-          type: "object",
-          properties: {
-            topic: {
-              type: "string",
-              description: "The main topic or concept for the lesson (e.g. 'JavaScript arrays', 'Python loops')"
-            },
-            difficulty: {
-              type: "string",
-              enum: ["beginner", "intermediate", "advanced"],
-              description: "The difficulty level of the lesson"
-            },
-            description: {
-              type: "string",
-              description: "An optional description for the lesson"
-            }
-          },
-          required: ["topic", "difficulty"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "getLesson",
-        description: "Get details about a specific lesson",
-        parameters: {
-          type: "object",
-          properties: {
-            lessonId: {
-              type: "number",
-              description: "The ID of the lesson to retrieve"
-            }
-          },
-          required: ["lessonId"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "searchLessons",
-        description: "Search for lessons by topic, language, or difficulty",
-        parameters: {
-          type: "object",
-          properties: {
-            topic: {
-              type: "string",
-              description: "Optional topic to search for"
-            },
-            language: {
-              type: "string",
-              description: "Optional programming language to filter by"
-            },
-            difficulty: {
-              type: "string",
-              enum: ["beginner", "intermediate", "advanced"],
-              description: "Optional difficulty level to filter by"
-            }
-          }
-        }
-      }
-    }
-  ],
-  functions: {
-    /**
-     * Create a new lesson
-     */
-    createLesson: async ({
-      topic,
-      difficulty,
-      description
-    }: {
-      topic: string;
-      difficulty: string;
-      description?: string;
-    }) => {
-      try {
-        // Generate lesson content using OpenAI
-        const generatedLesson = await generateLesson(topic, difficulty, description);
-        
-        // Create lesson in storage
-        const lesson = await storage.createLesson({
-          title: generatedLesson.title,
-          description: generatedLesson.description,
-          difficulty: difficulty as "beginner" | "intermediate" | "advanced",
-          language: generatedLesson.language || "javascript",
-          estimatedTime: generatedLesson.estimatedTime || "15 min",
-        });
-        
-        // Create slides for the lesson
-        if (generatedLesson.slides && generatedLesson.slides.length > 0) {
-          for (let i = 0; i < generatedLesson.slides.length; i++) {
-            const slideData = generatedLesson.slides[i];
-            await storage.createSlide({
-              lessonId: lesson.id,
-              title: slideData.title,
-              content: slideData.content,
-              type: slideData.type as "info" | "challenge" | "quiz",
-              order: i,
-              tags: slideData.tags || [],
-              initialCode: slideData.initialCode,
-              filename: slideData.filename,
-              tests: slideData.tests || [],
-            });
-          }
-        }
-        
-        return {
-          status: "success",
-          message: "Lesson created successfully",
-          lessonId: lesson.id,
-          lessonTitle: lesson.title,
-          slideCount: generatedLesson.slides.length
-        };
-      } catch (error) {
-        console.error("Error creating lesson:", error);
-        return {
-          status: "error",
-          message: `Failed to create lesson: ${error.message}`
-        };
-      }
-    },
+export async function getLesson(args: { lessonId: number }) {
+  try {
+    const { lessonId } = args;
     
-    /**
-     * Get details about a specific lesson
-     */
-    getLesson: async ({ lessonId }: { lessonId: number }) => {
-      try {
-        const lesson = await storage.getLesson(lessonId);
-        if (!lesson) {
+    console.log(`[LessonTools] Getting lesson ID: ${lessonId}`);
+    
+    // Get the lesson
+    const lesson = await storage.getLesson(lessonId);
+    
+    if (!lesson) {
+      throw new Error(`Lesson with ID ${lessonId} not found`);
+    }
+    
+    // Get slides for this lesson
+    const slides = await storage.getSlidesByLessonId(lessonId);
+    
+    // Return lesson with slides
+    return {
+      ...lesson,
+      slides: slides.sort((a, b) => a.order - b.order),
+    };
+  } catch (error: any) {
+    console.error('[LessonTools] Error getting lesson:', error);
+    throw new Error(`Failed to get lesson: ${error.message}`);
+  }
+}
+
+/**
+ * Get all lessons
+ */
+export async function getLessons() {
+  try {
+    console.log('[LessonTools] Getting all lessons');
+    
+    // Get all lessons
+    const lessons = await storage.getLessons();
+    
+    return lessons;
+  } catch (error: any) {
+    console.error('[LessonTools] Error getting lessons:', error);
+    throw new Error(`Failed to get lessons: ${error.message}`);
+  }
+}
+
+/**
+ * Update lesson details
+ */
+export async function updateLesson(args: { 
+  lessonId: number, 
+  title?: string, 
+  description?: string,
+  difficulty?: 'beginner' | 'intermediate' | 'advanced',
+  language?: string,
+  estimatedTime?: string
+}) {
+  try {
+    const { lessonId, ...updateData } = args;
+    
+    console.log(`[LessonTools] Updating lesson ID: ${lessonId}`);
+    
+    // Get the lesson to ensure it exists
+    const lesson = await storage.getLesson(lessonId);
+    
+    if (!lesson) {
+      throw new Error(`Lesson with ID ${lessonId} not found`);
+    }
+    
+    // Update the lesson
+    const updatedLesson = await storage.updateLesson(lessonId, updateData);
+    
+    return updatedLesson;
+  } catch (error: any) {
+    console.error('[LessonTools] Error updating lesson:', error);
+    throw new Error(`Failed to update lesson: ${error.message}`);
+  }
+}
+
+/**
+ * Get the current active slide based on chat context
+ * This helps determine which slide the user is currently viewing
+ */
+export async function getCurrentSlideContext(args: { lessonId: number, chatId: number }) {
+  try {
+    const { lessonId, chatId } = args;
+    
+    console.log(`[LessonTools] Getting current slide context for lesson ID: ${lessonId}, chat ID: ${chatId}`);
+    
+    // Get the chat to ensure it exists
+    const chat = await storage.getChat(chatId);
+    
+    if (!chat) {
+      throw new Error(`Chat with ID ${chatId} not found`);
+    }
+    
+    // Get chat messages to analyze context
+    const messages = await storage.getMessagesByChatId(chatId);
+    
+    // Get all slides for the lesson
+    const slides = await storage.getSlidesByLessonId(lessonId);
+    
+    if (!slides || slides.length === 0) {
+      throw new Error(`No slides found for lesson with ID ${lessonId}`);
+    }
+    
+    // Look through messages to find references to specific slides
+    // This is a simple implementation - in a real app, you would use more sophisticated
+    // NLP techniques to determine the current context
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      
+      // Look for mentions of slide titles in recent messages
+      for (const slide of slides) {
+        if (message.content.includes(slide.title)) {
           return {
-            status: "error",
-            message: `Lesson with ID ${lessonId} not found`
+            currentSlide: slide,
+            allSlides: slides.sort((a, b) => a.order - b.order)
           };
         }
-        
-        // Get slides for the lesson
-        const slides = await storage.getSlidesByLessonId(lessonId);
-        
-        return {
-          status: "success",
-          lesson: {
-            ...lesson,
-            slideCount: slides.length
-          }
-        };
-      } catch (error) {
-        console.error("Error getting lesson:", error);
-        return {
-          status: "error",
-          message: `Failed to get lesson: ${error.message}`
-        };
       }
-    },
-    
-    /**
-     * Search for lessons
-     */
-    searchLessons: async ({
-      topic,
-      language,
-      difficulty
-    }: {
-      topic?: string;
-      language?: string;
-      difficulty?: string;
-    }) => {
-      try {
-        // Get all lessons
-        let lessons = await storage.getLessons();
-        
-        // Filter by criteria if provided
-        if (topic) {
-          lessons = lessons.filter(lesson => 
-            lesson.title.toLowerCase().includes(topic.toLowerCase()) || 
-            lesson.description.toLowerCase().includes(topic.toLowerCase())
-          );
+      
+      // Look for mentions of slide numbers
+      for (let j = 0; j < slides.length; j++) {
+        const slideNumber = j + 1;
+        if (message.content.includes(`slide ${slideNumber}`) || 
+            message.content.includes(`Slide ${slideNumber}`)) {
+          return {
+            currentSlide: slides[j],
+            allSlides: slides.sort((a, b) => a.order - b.order)
+          };
         }
-        
-        if (language) {
-          lessons = lessons.filter(lesson => 
-            lesson.language.toLowerCase() === language.toLowerCase()
-          );
-        }
-        
-        if (difficulty) {
-          lessons = lessons.filter(lesson => 
-            lesson.difficulty === difficulty
-          );
-        }
-        
-        return {
-          status: "success",
-          count: lessons.length,
-          lessons: lessons.map(lesson => ({
-            id: lesson.id,
-            title: lesson.title,
-            description: lesson.description,
-            difficulty: lesson.difficulty,
-            language: lesson.language
-          }))
-        };
-      } catch (error) {
-        console.error("Error searching lessons:", error);
-        return {
-          status: "error",
-          message: `Failed to search lessons: ${error.message}`
-        };
       }
     }
+    
+    // Default to the first slide if no specific context is found
+    return {
+      currentSlide: slides.sort((a, b) => a.order - b.order)[0],
+      allSlides: slides.sort((a, b) => a.order - b.order)
+    };
+  } catch (error: any) {
+    console.error('[LessonTools] Error getting current slide context:', error);
+    throw new Error(`Failed to get current slide context: ${error.message}`);
   }
-};
+}

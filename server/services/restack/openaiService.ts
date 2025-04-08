@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { storage } from '../../storage';
 import { tools, toolsMap } from './toolDefinitions';
 import { v4 as uuidv4 } from 'uuid';
+import { getLesson, getCurrentSlideContext } from '../tools/lessonTools';
 
 // Initialize OpenAI client with API key
 const openai = new OpenAI({
@@ -111,29 +112,87 @@ class RestackOpenAIService {
       }
       // Use OpenAI function calling for other responses when in a lesson context
       else if (lessonId) {
-        // Convert our tools to OpenAI tool format
-        const openaiTools = tools.map(tool => ({
-          type: 'function' as const,
-          function: {
-            name: tool.function.name,
-            description: tool.function.description,
-            parameters: tool.function.parameters
-          }
-        }));
+        // Declare completion variable outside the try-catch block so it's accessible later
+        let completion: any;
         
-        // Make the initial API call with tools
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are Mumu, a friendly coding tutor for teenagers. You assist with coding lessons."
-            },
-            ...chatHistory,
-            { role: "user", content: message }
-          ],
-          tools: openaiTools
-        });
+        // First, get the current lesson and slide context to provide as context
+        try {
+          // Get detailed lesson information
+          const lessonDetails = await getLesson({ lessonId });
+          
+          // Get current slide context based on chat history
+          const slideContext = await getCurrentSlideContext({ lessonId, chatId });
+          
+          // Build a detailed context message for the AI
+          const contextMessage = `
+You are currently helping with the lesson "${lessonDetails.title}" (ID: ${lessonId}), which is a ${lessonDetails.difficulty} level lesson about ${lessonDetails.language}.
+
+The current slide appears to be "${slideContext.currentSlide.title}" (ID: ${slideContext.currentSlide.id}, type: ${slideContext.currentSlide.type}).
+
+The lesson contains ${lessonDetails.slides.length} slides in total:
+${lessonDetails.slides.map((slide: any, index: number) => `${index + 1}. ${slide.title} (${slide.type})`).join('\n')}
+
+You have access to tools that allow you to:
+- Get lesson and slide information
+- Update existing slides
+- Add new slides to the lesson
+- Analyze the current context
+
+When the user asks for changes to the lesson or requests new content, use these tools to fulfill their request. Always confirm what actions you've taken.
+`;
+
+          console.log('[AI Service] Using lesson context for response generation');
+          
+          // Convert our tools to OpenAI tool format
+          const openaiTools = tools.map(tool => ({
+            type: 'function' as const,
+            function: {
+              name: tool.function.name,
+              description: tool.function.description,
+              parameters: tool.function.parameters
+            }
+          }));
+          
+          // Make the initial API call with tools and enhanced context
+          completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: `You are Mumu, a friendly coding tutor for teenagers. You assist with coding lessons.\n\n${contextMessage}`
+              },
+              ...chatHistory,
+              { role: "user", content: message }
+            ],
+            tools: openaiTools
+          });
+        } catch (error) {
+          console.error('[AI Service] Error getting lesson context:', error);
+          
+          // Fallback to basic context if we can't get the lesson details
+          const openaiTools = tools.map(tool => ({
+            type: 'function' as const,
+            function: {
+              name: tool.function.name,
+              description: tool.function.description,
+              parameters: tool.function.parameters
+            }
+          }));
+          
+          // Make the initial API call with tools but minimal context
+          completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: "You are Mumu, a friendly coding tutor for teenagers. You assist with coding lessons."
+              },
+              ...chatHistory,
+              { role: "user", content: message }
+            ],
+            tools: openaiTools
+          });
+        }
         
         const responseMessage = completion.choices[0].message;
         

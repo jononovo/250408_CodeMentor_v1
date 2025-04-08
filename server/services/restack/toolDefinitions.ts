@@ -1,281 +1,312 @@
-import { v4 as uuidv4 } from 'uuid';
-import { storage } from '../../storage';
+import { getLesson, getLessons, getCurrentSlideContext, updateLesson } from '../tools/lessonTools';
+import { getSlides, getSlide, addSlide, updateSlide } from '../tools/slideTools';
 
 /**
- * Tool definitions for Restack OpenAI integrations
+ * Tool definition interface
  */
+export interface Tool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: string;
+      properties?: Record<string, any>;
+      required?: string[];
+    };
+  };
+}
 
-export const tools = [
+/**
+ * Define tools to be used with OpenAI function calling
+ */
+export const tools: Tool[] = [
   {
     type: "function",
     function: {
-      name: "createLesson",
-      description: "Create a new coding lesson on a specific topic",
-      parameters: {
-        type: "object",
-        properties: {
-          topic: {
-            type: "string",
-            description: "The programming topic to create a lesson about, e.g., 'JavaScript loops', 'Python functions'",
-          },
-          difficulty: {
-            type: "string",
-            enum: ["beginner", "intermediate", "advanced"],
-            description: "The difficulty level of the lesson",
-          },
-          language: {
-            type: "string",
-            description: "The programming language for the lesson, e.g., 'JavaScript', 'Python'",
-          },
-        },
-        required: ["topic"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "updateSlide",
-      description: "Update an existing slide in a lesson",
+      name: "getLesson",
+      description: "Get detailed information about a specific lesson and its slides",
       parameters: {
         type: "object",
         properties: {
           lessonId: {
             type: "number",
-            description: "The ID of the lesson containing the slide",
-          },
-          slideId: {
+            description: "The ID of the lesson to retrieve"
+          }
+        },
+        required: ["lessonId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getLessons",
+      description: "Get a list of all available lessons",
+      parameters: {
+        type: "object",
+        properties: {}
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getCurrentSlideContext",
+      description: "Get the current slide context based on the chat history to determine what slide the user is viewing",
+      parameters: {
+        type: "object",
+        properties: {
+          lessonId: {
             type: "number",
-            description: "The ID of the slide to update",
+            description: "The ID of the lesson"
+          },
+          chatId: {
+            type: "number",
+            description: "The ID of the chat to analyze for context"
+          }
+        },
+        required: ["lessonId", "chatId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "updateLesson",
+      description: "Update details of a lesson",
+      parameters: {
+        type: "object",
+        properties: {
+          lessonId: {
+            type: "number",
+            description: "The ID of the lesson to update"
           },
           title: {
             type: "string",
-            description: "The new title for the slide",
+            description: "New title for the lesson"
+          },
+          description: {
+            type: "string",
+            description: "New description for the lesson"
+          },
+          difficulty: {
+            type: "string",
+            enum: ["beginner", "intermediate", "advanced"],
+            description: "New difficulty level for the lesson"
+          },
+          language: {
+            type: "string",
+            description: "New programming language for the lesson"
+          },
+          estimatedTime: {
+            type: "string",
+            description: "New estimated completion time for the lesson"
+          }
+        },
+        required: ["lessonId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getSlides",
+      description: "Get all slides for a specific lesson",
+      parameters: {
+        type: "object",
+        properties: {
+          lessonId: {
+            type: "number",
+            description: "The ID of the lesson to get slides for"
+          }
+        },
+        required: ["lessonId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getSlide",
+      description: "Get details about a specific slide",
+      parameters: {
+        type: "object",
+        properties: {
+          lessonId: {
+            type: "number",
+            description: "The ID of the lesson the slide belongs to"
+          },
+          slideId: {
+            type: "number",
+            description: "The ID of the slide to retrieve"
+          }
+        },
+        required: ["lessonId", "slideId"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "addSlide",
+      description: "Add a new slide to a lesson",
+      parameters: {
+        type: "object",
+        properties: {
+          lessonId: {
+            type: "number",
+            description: "The ID of the lesson to add a slide to"
+          },
+          title: {
+            type: "string",
+            description: "Title for the new slide"
           },
           content: {
             type: "string",
-            description: "The new content for the slide",
+            description: "Content for the slide in Markdown format"
           },
+          type: {
+            type: "string",
+            enum: ["info", "challenge", "quiz"],
+            description: "Type of slide to add"
+          },
+          tags: {
+            type: "array",
+            items: {
+              type: "string"
+            },
+            description: "Tags to categorize the slide"
+          },
+          initialCode: {
+            type: "string",
+            description: "Initial code for a challenge slide"
+          },
+          filename: {
+            type: "string",
+            description: "Filename for the code editor (e.g., script.js, index.html)"
+          },
+          tests: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Name of the test"
+                },
+                description: {
+                  type: "string",
+                  description: "Description of what the test checks for"
+                },
+                validation: {
+                  type: "string",
+                  description: "Validation code or regex pattern to check"
+                },
+                type: {
+                  type: "string",
+                  enum: ["regex", "js"],
+                  description: "Type of test (regex or JavaScript)"
+                }
+              },
+              required: ["name", "description", "validation", "type"]
+            },
+            description: "Tests for challenge slides to validate user code"
+          }
         },
-        required: ["lessonId", "slideId"],
-      },
-    },
+        required: ["lessonId", "title", "content", "type"]
+      }
+    }
   },
   {
     type: "function",
     function: {
-      name: "analyzeCode",
-      description: "Analyze code for errors, improvements, and best practices",
+      name: "updateSlide",
+      description: "Update an existing slide",
       parameters: {
         type: "object",
         properties: {
-          code: {
-            type: "string",
-            description: "The code to analyze",
+          lessonId: {
+            type: "number",
+            description: "The ID of the lesson the slide belongs to"
           },
-          language: {
-            type: "string",
-            description: "The programming language of the code",
+          slideId: {
+            type: "number",
+            description: "The ID of the slide to update"
           },
+          title: {
+            type: "string",
+            description: "New title for the slide"
+          },
+          content: {
+            type: "string",
+            description: "New content for the slide in Markdown format"
+          },
+          type: {
+            type: "string",
+            enum: ["info", "challenge", "quiz"],
+            description: "New type for the slide"
+          },
+          tags: {
+            type: "array",
+            items: {
+              type: "string"
+            },
+            description: "New tags for the slide"
+          },
+          initialCode: {
+            type: "string",
+            description: "New initial code for a challenge slide"
+          },
+          filename: {
+            type: "string",
+            description: "New filename for the code editor"
+          },
+          tests: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Name of the test"
+                },
+                description: {
+                  type: "string",
+                  description: "Description of what the test checks for"
+                },
+                validation: {
+                  type: "string",
+                  description: "Validation code or regex pattern to check"
+                },
+                type: {
+                  type: "string",
+                  enum: ["regex", "js"],
+                  description: "Type of test (regex or JavaScript)"
+                }
+              },
+              required: ["name", "description", "validation", "type"]
+            },
+            description: "New tests for challenge slides"
+          }
         },
-        required: ["code", "language"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "explainCode",
-      description: "Provide a line-by-line explanation of code",
-      parameters: {
-        type: "object",
-        properties: {
-          code: {
-            type: "string",
-            description: "The code to explain",
-          },
-          language: {
-            type: "string",
-            description: "The programming language of the code",
-          },
-        },
-        required: ["code", "language"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "generateTests",
-      description: "Generate test cases for a coding challenge",
-      parameters: {
-        type: "object",
-        properties: {
-          challenge: {
-            type: "string",
-            description: "Description of the coding challenge",
-          },
-          code: {
-            type: "string",
-            description: "The code to generate tests for",
-          },
-          language: {
-            type: "string",
-            description: "The programming language of the code",
-          },
-        },
-        required: ["challenge", "language"],
-      },
-    },
-  },
+        required: ["lessonId", "slideId"]
+      }
+    }
+  }
 ];
 
 /**
- * Tool implementation map
+ * Map of function names to their implementations
+ * This is used by the OpenAI function calling mechanism
  */
-export const toolsMap = {
-  createLesson: async (args: { topic: string; difficulty?: string; language?: string }) => {
-    try {
-      const { topic, difficulty = 'beginner', language = 'JavaScript' } = args;
-      
-      // Create the lesson
-      const lesson = await storage.createLesson({
-        title: `Learning ${topic}`,
-        description: `A ${difficulty} level lesson about ${topic}`,
-        language,
-        difficulty: difficulty as any,
-        estimatedTime: '15 minutes'
-      });
-      
-      // Generate basic slides
-      const slideTypes = ['info', 'info', 'challenge', 'quiz'];
-      const slideTitles = ['Introduction', 'Core Concepts', 'Coding Challenge', 'Knowledge Check'];
-      
-      for (let i = 0; i < slideTypes.length; i++) {
-        await storage.createSlide({
-          lessonId: lesson.id,
-          title: slideTitles[i],
-          content: `# ${slideTitles[i]}\n\nContent about ${topic} goes here.`,
-          type: slideTypes[i] as any,
-          order: i,
-          tags: [topic.toLowerCase(), slideTypes[i]],
-          initialCode: slideTypes[i] === 'challenge' ? `// Write your code for ${topic} here` : undefined,
-          filename: slideTypes[i] === 'challenge' ? 'script.js' : undefined,
-          tests: slideTypes[i] === 'challenge' ? [
-            {
-              id: uuidv4(),
-              name: "Basic Test",
-              description: "Checks basic functionality",
-              validation: "function exists",
-              type: 'regex'
-            }
-          ] : undefined
-        });
-      }
-      
-      return {
-        id: lesson.id,
-        title: lesson.title,
-        message: `Created a new lesson: ${lesson.title}`
-      };
-    } catch (error: any) {
-      console.error('Error in createLesson tool:', error);
-      throw new Error(`Failed to create lesson: ${error.message}`);
-    }
-  },
-  
-  updateSlide: async (args: { lessonId: number; slideId: number; title?: string; content?: string }) => {
-    try {
-      const { lessonId, slideId, title, content } = args;
-      
-      // Verify the slide exists
-      const slide = await storage.getSlide(slideId);
-      if (!slide || slide.lessonId !== lessonId) {
-        throw new Error('Slide not found or does not belong to the specified lesson');
-      }
-      
-      // Update the slide
-      const updatedSlide = await storage.updateSlide(slideId, {
-        title: title || slide.title,
-        content: content || slide.content
-      });
-      
-      return {
-        message: `Updated slide: ${updatedSlide.title}`,
-        slide: updatedSlide
-      };
-    } catch (error: any) {
-      console.error('Error in updateSlide tool:', error);
-      throw new Error(`Failed to update slide: ${error.message}`);
-    }
-  },
-  
-  analyzeCode: async (args: { code: string; language: string }) => {
-    const { code, language } = args;
-    
-    // This would typically call OpenAI to analyze the code
-    // For now, we return a simple analysis
-    return {
-      analysis: `This is an analysis of the ${language} code provided:\n\n1. No major errors detected\n2. Consider adding more comments\n3. Code follows standard conventions`,
-      suggestions: [
-        "Add more inline documentation",
-        "Consider edge cases",
-        "Add error handling"
-      ]
-    };
-  },
-  
-  explainCode: async (args: { code: string; language: string }) => {
-    const { code, language } = args;
-    
-    // This would typically call OpenAI to explain the code
-    // For now, we return a simple explanation
-    const lines = code.split('\n');
-    const explanations = lines.map((line, index) => 
-      `Line ${index + 1}: ${line.trim() ? `This line ${
-        line.includes('function') ? 'defines a function' : 
-        line.includes('return') ? 'returns a value' : 
-        line.includes('for') || line.includes('while') ? 'creates a loop' : 
-        line.includes('if') ? 'checks a condition' : 
-        'performs an operation'
-      }` : 'This is a blank line'}`
-    );
-    
-    return {
-      explanation: explanations.join('\n'),
-      language
-    };
-  },
-  
-  generateTests: async (args: { challenge: string; code?: string; language: string }) => {
-    const { challenge, code, language } = args;
-    
-    // This would typically call OpenAI to generate tests
-    // For now, we return sample tests
-    const tests = [
-      {
-        id: uuidv4(),
-        name: "Basic functionality",
-        description: "Checks if the solution works for basic inputs",
-        validation: language === 'JavaScript' 
-          ? "solution(1, 2) === 3" 
-          : "assert solution(1, 2) == 3",
-        type: 'js'
-      },
-      {
-        id: uuidv4(),
-        name: "Edge case",
-        description: "Checks if the solution handles edge cases",
-        validation: language === 'JavaScript'
-          ? "solution(0, 0) === 0"
-          : "assert solution(0, 0) == 0",
-        type: 'js'
-      }
-    ];
-    
-    return {
-      tests,
-      message: `Generated ${tests.length} tests for the challenge`
-    };
-  }
+export const toolsMap: Record<string, Function> = {
+  getLesson,
+  getLessons,
+  getCurrentSlideContext,
+  updateLesson,
+  getSlides,
+  getSlide,
+  addSlide,
+  updateSlide
 };
