@@ -1,4 +1,4 @@
-interface TestCase {
+export interface TestCase {
   id: string;
   name: string;
   description: string;
@@ -6,7 +6,7 @@ interface TestCase {
   type: 'regex' | 'js';
 }
 
-interface TestResult {
+export interface TestResult {
   id: string;
   name: string;
   passed: boolean;

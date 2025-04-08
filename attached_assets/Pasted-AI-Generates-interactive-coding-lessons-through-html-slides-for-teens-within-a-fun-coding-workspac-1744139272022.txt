@@ -1,0 +1,43 @@
+AI Generates interactive coding lessons (through html slides) for teens within a fun coding workspace.
+
+Coding workspace has two main sections:
+1. Interactive slides on the left.
+ 2. The code editor. Center/right
+3. The browser/console section opens on right when needed. (  via icon or with run button.)
+
+A. instructional area shows the lesson. Students complete a coding challenge or does quizzes or learns concepts through diagrams or other interactive slides as he progresses.
+
+B. lesson slides and slides design is generated via AI prompting. Chat UI sits on the right (can be minimized) while building the lesson/slides on the workspace. Could use: https://www.simple-ai.dev/blocks/chat#chat-01 
+
+Each new "Chat" will open a new "Lesson/set of slides". Each new lesson generation starts with 3 system files (hidden to users - only for slides) for the AI Agent to build with:
+A. HTML File (which is slide 1) "placeholder: Build your Lesson with Mumu the AI Agent" ( Placeholder is replaced once building starts.)
+Each html file is a new slide.
+B. CSS File (central styling for slides)
+C. JS File for interactivity in slides (accordions, quizzes, etc.)
+
+
+A great backend for this is: https://github.com/restackio/examples-typescript/tree/main/agent-tool  
+https://docs.restack.io/blueprints/agent-toolcall 
+
+Example of system "tools" available to the AI agent:
+Create new lesson/chat.
+Create new html file.
+Edit file.
+
+Code Testing Tool:
+At the end of Challenge slides (that require the student code in the editor), add "tests section" that shows name (Test1) and description (Add a function call doghouse), with hidden validation (regex or mocha code that checks if test completes when "Run" button is clicked.)
+
+A webhook connects the validation, when the run button is clicked and provides a fun result. 
+Max. 3 tests per Challenge slide.
+
+Ongoing:
+AI agent can edit ( or adding or removing) the lesson slides files ( Html, CSS and JS) after the lesson has generated.
+Should also detect what slide it is currently on, to be able to make edits to that specific slide based on the chat interactions.
+
+Start with javascript initial language option.
+
+
+----
+
+
+

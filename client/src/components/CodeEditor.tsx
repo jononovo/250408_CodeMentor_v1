@@ -145,7 +145,8 @@ export default function CodeEditor({
         {showConsole && (
           <CodeConsole 
             output={consoleOutput} 
-            onClose={() => setShowConsole(false)} 
+            onClose={() => setShowConsole(false)}
+            testResults={testResults}
           />
         )}
       </div>
