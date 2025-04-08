@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { aiService } from "./services/aiService";
+import { restackOpenAIService } from "./services/restack/openaiService";
 import { WebSocketServer } from "ws";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -49,8 +49,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Topic is required" });
       }
 
-      // Generate a lesson using AI
-      const generatedLesson = await aiService.generateLesson(topic, difficulty, description);
+      // Generate a lesson using AI with the Restack OpenAI integration
+      const generatedLesson = await restackOpenAIService.generateLesson(topic, difficulty);
       
       // Create lesson in storage
       const lesson = await storage.createLesson({
@@ -254,10 +254,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content,
       });
       
-      // Generate AI response
+      // Generate AI response using Restack OpenAI integration
       // Handle the case where lessonId might be null
       const lessonId = typeof chat.lessonId === 'number' ? chat.lessonId : undefined;
-      const aiResponse = await aiService.generateResponse(content, chatId, lessonId);
+      const aiResponse = await restackOpenAIService.generateResponse(content, chatId, lessonId);
       
       // Store AI message
       const message = await storage.createMessage({
@@ -288,8 +288,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (data.type === 'chat_message') {
           const { chatId, content, lessonId } = data;
           
-          // Generate AI response
-          const response = await aiService.generateResponse(content, chatId, lessonId);
+          // Generate AI response using Restack OpenAI integration
+          const response = await restackOpenAIService.generateResponse(content, chatId, lessonId);
           
           // Send the response back to the client
           if (ws.readyState === ws.OPEN) {
