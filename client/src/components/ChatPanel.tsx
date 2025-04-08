@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { useAI } from '@/hooks/use-ai';
 import { Chat, Message } from '@/types';
 
+// Track which messages have been processed for lesson creation
+const processedMessages = new Set<number>();
+
 interface ChatPanelProps {
   lessonId?: string;
   onNewLesson?: (title: string) => void;
@@ -42,13 +45,17 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
     }
   };
 
-  const formatMessage = (content: string) => {
+  const formatMessage = (content: string, messageId: number = -1) => {
     // Check for lesson creation metadata and handle it
     if (content.includes('__LESSON_CREATED__:')) {
       const metaMatch = content.match(/__LESSON_CREATED__:(\d+):(.+)$/);
-      if (metaMatch && onNewLesson) {
+      
+      if (metaMatch && onNewLesson && !processedMessages.has(messageId)) {
         // Extract lessonId and title
         const lessonTitle = metaMatch[2];
+        
+        // Mark this message as processed
+        processedMessages.add(messageId);
         
         // Call the onNewLesson callback with the title
         setTimeout(() => {
@@ -56,6 +63,10 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         }, 500);
         
         // Remove the metadata from the message for display
+        content = content.replace(/__LESSON_CREATED__:\d+:.+$/, '');
+      } else {
+        // Always remove the metadata from the message for display, 
+        // even if we've already processed it
         content = content.replace(/__LESSON_CREATED__:\d+:.+$/, '');
       }
     }
@@ -148,7 +159,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                   }`}>
                     <div 
                       className="text-sm text-gray-800"
-                      dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
+                      dangerouslySetInnerHTML={{ __html: formatMessage(msg.content, msg.id) }}
                     />
                     <span className="text-xs text-gray-500 block mt-1">
                       {formatTime(msg.timestamp)}
