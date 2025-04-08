@@ -20,9 +20,13 @@ class RestackOpenAIService {
     difficulty: string = 'beginner'
   ) {
     try {
+      console.log(`[AI Service] Generating lesson about "${topic}" with difficulty "${difficulty}"`);
+      
       // Create basic lesson structure
       const language = this.detectLanguageFromTopic(topic);
       const title = this.generateTitle(topic, difficulty);
+      
+      console.log(`[AI Service] Using language: ${language}, title: ${title}`);
       
       // Insert the new lesson
       const lesson = await storage.createLesson({
@@ -79,6 +83,9 @@ class RestackOpenAIService {
       }
       
       let response = '';
+      
+      console.log('[AI Service] Processing message:', message);
+      console.log('[AI Service] Is new lesson request?', this.isNewLessonRequest(message));
       
       // Check if this is a request to create a new lesson
       if (this.isNewLessonRequest(message)) {
@@ -227,30 +234,56 @@ class RestackOpenAIService {
 
   private isNewLessonRequest(message: string): boolean {
     const createPatterns = [
-      /create (a|new) lesson/i,
-      /make (a|new) lesson/i,
-      /generate (a|new) lesson/i,
+      /create (a|new)? lesson/i,
+      /make (a|new)? lesson/i,
+      /generate (a|new)? lesson/i,
       /teach me (about|how to)/i,
-      /create (a|an) tutorial/i,
-      /build (a|an) lesson/i
+      /create (a|an)? tutorial/i,
+      /build (a|an)? lesson/i,
+      /new lesson/i,
+      /lesson (about|on)/i,
+      /can you (make|create) a/i,
+      /create a tutorial/i
     ];
     return createPatterns.some(pattern => pattern.test(message));
   }
 
   private extractTopicFromMessage(message: string): string {
     const topicPatterns = [
-      /about\s+([^,\.]+)/i,
-      /on\s+([^,\.]+)/i,
-      /for\s+([^,\.]+)/i,
-      /covering\s+([^,\.]+)/i,
-      /teach me\s+([^,\.]+)/i
+      /about\s+([^,\.?!]+)/i,
+      /on\s+([^,\.?!]+)/i,
+      /for\s+([^,\.?!]+)/i,
+      /covering\s+([^,\.?!]+)/i,
+      /teach me\s+([^,\.?!]+)/i,
+      /lesson (?:about|on) ([^,\.?!]+)/i,
+      /create (?:a |an )?(?:new )?lesson (?:about|on|for) ([^,\.?!]+)/i,
+      /make (?:a |an )?(?:new )?lesson (?:about|on|for) ([^,\.?!]+)/i,
+      /generate (?:a |an )?(?:new )?lesson (?:about|on|for) ([^,\.?!]+)/i,
+      /tutorial (?:about|on|for) ([^,\.?!]+)/i
     ];
     
+    // Look for patterns in the message
     for (const pattern of topicPatterns) {
       const match = message.match(pattern);
       if (match && match[1]) {
         return match[1].trim();
       }
+    }
+    
+    // If no match found with specific patterns, try to extract a subject from the message
+    // by finding a potential programming related term
+    const programmingTerms = [
+      "javascript", "python", "java", "c\\+\\+", "html", "css", 
+      "react", "node", "express", "vue", "angular", "typescript",
+      "arrays", "functions", "loops", "objects", "classes", 
+      "variables", "data structures", "algorithms", "web development"
+    ];
+    
+    const termsRegex = new RegExp(`\\b(${programmingTerms.join("|")})\\b`, "i");
+    const termMatch = message.match(termsRegex);
+    
+    if (termMatch && termMatch[1]) {
+      return termMatch[1].trim();
     }
     
     // Default to a generic topic if no specific one is found
