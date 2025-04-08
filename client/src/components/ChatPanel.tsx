@@ -43,9 +43,26 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
   };
 
   const formatMessage = (content: string) => {
+    // Check for lesson creation metadata and handle it
+    if (content.includes('__LESSON_CREATED__:')) {
+      const metaMatch = content.match(/__LESSON_CREATED__:(\d+):(.+)$/);
+      if (metaMatch && onNewLesson) {
+        // Extract lessonId and title
+        const lessonTitle = metaMatch[2];
+        
+        // Call the onNewLesson callback with the title
+        setTimeout(() => {
+          if (onNewLesson) onNewLesson(lessonTitle);
+        }, 500);
+        
+        // Remove the metadata from the message for display
+        content = content.replace(/__LESSON_CREATED__:\d+:.+$/, '');
+      }
+    }
+    
     // Handle code blocks
     let formattedContent = content;
-    const codeBlockRegex = /```(.+?)```/gs;
+    const codeBlockRegex = /```([\s\S]+?)```/g;
     
     formattedContent = formattedContent.replace(codeBlockRegex, (match, code) => {
       return `<pre class="bg-white p-2 rounded mt-2 text-xs font-mono overflow-x-auto">${code}</pre>`;
@@ -60,7 +77,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
     return formattedContent;
   };
 
-  const formatTime = (timestamp: number) => {
+  const formatTime = (timestamp: string | number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };

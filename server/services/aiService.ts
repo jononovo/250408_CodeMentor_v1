@@ -70,6 +70,50 @@ class AIService {
       }
     }
     
+    // Check if this is a new lesson creation request
+    if (!lessonId && this.isNewLessonRequest(lowerMessage)) {
+      try {
+        const topic = this.extractTopicFromMessage(message);
+        const difficulty = this.extractDifficultyFromMessage(message);
+        
+        // Create a new lesson
+        const generatedLesson = await this.generateLesson(topic, difficulty);
+        
+        // Store it
+        const lesson = await storage.createLesson({
+          title: generatedLesson.title,
+          description: generatedLesson.description,
+          difficulty: difficulty || "beginner",
+          language: generatedLesson.language || "javascript",
+          estimatedTime: generatedLesson.estimatedTime || "15 min",
+        });
+        
+        // Create slides
+        if (generatedLesson.slides && generatedLesson.slides.length > 0) {
+          for (let i = 0; i < generatedLesson.slides.length; i++) {
+            const slideData = generatedLesson.slides[i];
+            await storage.createSlide({
+              lessonId: lesson.id,
+              title: slideData.title,
+              content: slideData.content,
+              type: slideData.type,
+              order: i,
+              tags: slideData.tags || [],
+              initialCode: slideData.initialCode,
+              filename: slideData.filename,
+              tests: slideData.tests || [],
+            });
+          }
+        }
+        
+        // Return confirmation message with metadata for the frontend
+        return `I've created a new lesson about ${topic}! The lesson is titled "${lesson.title}". You can find it on your lessons page.\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return `I couldn't create a lesson. Error: ${errorMessage}. Please try again with a clearer request like "Create a beginner lesson about JavaScript arrays" or "Make a Python lesson for beginners about variables".`;
+      }
+    }
+    
     // Regular responses
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
       return "Hello! I'm Mumu, your coding mentor. How can I help you learn to code today?";
@@ -101,6 +145,78 @@ class AIService {
     ];
     
     return editKeywords.some(keyword => message.includes(keyword));
+  }
+  
+  // Check if a message is requesting a new lesson creation
+  private isNewLessonRequest(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+    const createKeywords = [
+      'create a lesson', 'make a lesson', 'generate a lesson',
+      'create lesson', 'make lesson', 'generate lesson',
+      'i want a lesson', 'i need a lesson',
+      'can you create a lesson', 'can you make a lesson',
+      'new lesson about', 'lesson on', 'create tutorial'
+    ];
+    
+    return createKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+  
+  // Extract the topic from a new lesson request
+  private extractTopicFromMessage(message: string): string {
+    const lowerMessage = message.toLowerCase();
+    let topic = 'JavaScript basics';
+    
+    // Extract topic after keywords like "about", "on", etc.
+    const topicKeywords = ['about', 'on', 'for', 'covering', 'teaching'];
+    
+    for (const keyword of topicKeywords) {
+      const pattern = new RegExp(`${keyword}\\s+([^.,!?]+)`, 'i');
+      const match = message.match(pattern);
+      
+      if (match && match[1]) {
+        topic = match[1].trim();
+        break;
+      }
+    }
+    
+    // If specific programming topics are mentioned, use those
+    if (lowerMessage.includes('javascript') || lowerMessage.includes('js')) {
+      if (lowerMessage.includes('array')) topic = 'JavaScript arrays';
+      else if (lowerMessage.includes('function')) topic = 'JavaScript functions';
+      else if (lowerMessage.includes('loop')) topic = 'JavaScript loops';
+      else if (lowerMessage.includes('variable')) topic = 'JavaScript variables';
+      else if (lowerMessage.includes('object')) topic = 'JavaScript objects';
+      else topic = 'JavaScript basics';
+    } else if (lowerMessage.includes('python')) {
+      if (lowerMessage.includes('list')) topic = 'Python lists';
+      else if (lowerMessage.includes('function')) topic = 'Python functions';
+      else if (lowerMessage.includes('loop')) topic = 'Python loops';
+      else if (lowerMessage.includes('variable')) topic = 'Python variables';
+      else if (lowerMessage.includes('dictionary')) topic = 'Python dictionaries';
+      else topic = 'Python basics';
+    } else if (lowerMessage.includes('html')) {
+      topic = 'HTML basics';
+    } else if (lowerMessage.includes('css')) {
+      topic = 'CSS basics';
+    }
+    
+    return topic;
+  }
+  
+  // Extract the difficulty level from a new lesson request
+  private extractDifficultyFromMessage(message: string): string {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('beginner') || lowerMessage.includes('basic') || lowerMessage.includes('easy')) {
+      return 'beginner';
+    } else if (lowerMessage.includes('intermediate') || lowerMessage.includes('medium')) {
+      return 'intermediate';
+    } else if (lowerMessage.includes('advanced') || lowerMessage.includes('expert') || lowerMessage.includes('hard')) {
+      return 'advanced';
+    }
+    
+    // Default to beginner if no difficulty is specified
+    return 'beginner';
   }
   
   // Handle a request to edit slides

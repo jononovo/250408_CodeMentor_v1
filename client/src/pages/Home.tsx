@@ -1,14 +1,31 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, BookOpen, Clock, ArrowRight, Plus } from "lucide-react";
+import ChatPanel from "@/components/ChatPanel";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
-  const { data: lessons, isLoading } = useQuery({
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const { data: lessons = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/lessons"],
   });
+  
+  // Handle new lesson creation from chat
+  const handleNewLesson = (title: string) => {
+    // Refresh the lessons list
+    queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
+    
+    // Show toast notification
+    toast({
+      title: "Lesson Created",
+      description: `"${title}" has been created and added to your lessons.`,
+    });
+  };
 
   return (
     <div className="container mx-auto py-6 max-w-6xl">
@@ -86,6 +103,9 @@ export default function Home() {
           </Link>
         </div>
       )}
+      
+      {/* Add the ChatPanel component */}
+      <ChatPanel onNewLesson={handleNewLesson} />
     </div>
   );
 }
