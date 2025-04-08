@@ -51,13 +51,25 @@ class AIService {
   // Generate a response to a chat message
   async generateResponse(
     message: string,
-    chatId: number
+    chatId: number,
+    lessonId?: number
   ): Promise<string> {
     // In a real implementation, this would call an external AI API
-    // For now, return a simple response
+    // For now, handle specific message patterns
     
     const lowerMessage = message.toLowerCase();
     
+    // Check if this is a slide editing request
+    if (lessonId && this.isSlideEditRequest(lowerMessage)) {
+      try {
+        return await this.handleSlideEditRequest(message, lessonId);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return `I couldn't update the slide. Error: ${errorMessage}`;
+      }
+    }
+    
+    // Regular responses
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
       return "Hello! I'm Mumu, your coding mentor. How can I help you learn to code today?";
     }
@@ -76,6 +88,314 @@ class AIService {
     
     // Default response
     return "That's an interesting question! To help you better, could you provide more details about what you're trying to learn or accomplish? I'm here to support your coding journey.";
+  }
+  
+  // Check if a message is requesting slide edits
+  private isSlideEditRequest(message: string): boolean {
+    const editKeywords = [
+      'edit slide', 'update slide', 'change slide', 
+      'modify slide', 'fix slide', 'add slide', 
+      'create slide', 'new slide', 'delete slide', 
+      'remove slide'
+    ];
+    
+    return editKeywords.some(keyword => message.includes(keyword));
+  }
+  
+  // Handle a request to edit slides
+  private async handleSlideEditRequest(message: string, lessonId: number): Promise<string> {
+    // Import storage here to avoid circular dependencies
+    const { storage } = require('../storage');
+    
+    // Get current slides
+    const slides = await storage.getSlidesByLessonId(lessonId);
+    if (!slides || slides.length === 0) {
+      return "I couldn't find any slides for this lesson to edit.";
+    }
+    
+    const lowerMessage = message.toLowerCase();
+    let slideIndex = -1;
+    
+    // Try to determine which slide to edit
+    if (lowerMessage.includes('slide 1') || lowerMessage.includes('first slide')) {
+      slideIndex = 0;
+    } else if (lowerMessage.includes('slide 2') || lowerMessage.includes('second slide')) {
+      slideIndex = 1;
+    } else if (lowerMessage.includes('slide 3') || lowerMessage.includes('third slide')) {
+      slideIndex = 2;
+    } else if (lowerMessage.includes('slide 4') || lowerMessage.includes('fourth slide')) {
+      slideIndex = 3;
+    } else {
+      // For "add slide" or "new slide" we want to create a new one
+      if (lowerMessage.includes('add slide') || lowerMessage.includes('new slide') || lowerMessage.includes('create slide')) {
+        // Create a new slide
+        const slideType = this.determineSlideType(message);
+        const slideTitle = this.generateSlideTitleFromMessage(message);
+        const slideContent = this.generateSlideContentFromMessage(message, slideType);
+        
+        const newSlide = await storage.createSlide({
+          lessonId,
+          title: slideTitle,
+          content: slideContent,
+          type: slideType,
+          order: slides.length, // Add to the end
+          tags: this.determineTagsFromMessage(message),
+          initialCode: slideType === 'challenge' ? this.generateInitialCodeFromMessage(message) : undefined,
+          filename: slideType === 'challenge' ? this.getFilenameForLanguage("javascript") : undefined,
+          tests: slideType === 'challenge' ? this.generateTestsFromMessage(message) : undefined
+        });
+        
+        return `I've added a new ${slideType} slide titled "${slideTitle}" to your lesson. You can view it as slide #${slides.length + 1}.`;
+      }
+      
+      return "I'm not sure which slide you want to edit. Please specify by saying something like 'edit slide 1' or 'update the second slide'.";
+    }
+    
+    // Check if the requested slide exists
+    if (slideIndex >= slides.length) {
+      return `This lesson only has ${slides.length} slides. Please specify a valid slide number.`;
+    }
+    
+    const slideToEdit = slides[slideIndex];
+    
+    // Handle different types of edits
+    if (lowerMessage.includes('delete') || lowerMessage.includes('remove')) {
+      if (slides.length <= 1) {
+        return "A lesson must have at least one slide. I can't delete the only slide.";
+      }
+      
+      await storage.deleteSlide(slideToEdit.id);
+      
+      // Reorder remaining slides
+      const remainingSlides = slides.filter((s: any) => s.id !== slideToEdit.id);
+      for (let i = 0; i < remainingSlides.length; i++) {
+        if (remainingSlides[i].order !== i) {
+          await storage.updateSlide(remainingSlides[i].id, { order: i });
+        }
+      }
+      
+      return `I've deleted slide #${slideIndex + 1} titled "${slideToEdit.title}". The remaining slides have been reordered.`;
+    }
+    
+    // Update the slide content
+    const updatedContent = this.generateUpdatedContentFromMessage(message, slideToEdit.content);
+    const updatedTitle = lowerMessage.includes('title') ? this.generateUpdatedTitleFromMessage(message, slideToEdit.title) : slideToEdit.title;
+    
+    const updates: any = {
+      content: updatedContent,
+      title: updatedTitle
+    };
+    
+    // Update slide type if requested
+    if (lowerMessage.includes('make it a challenge') || lowerMessage.includes('change to challenge')) {
+      updates.type = 'challenge';
+      updates.initialCode = this.generateInitialCodeFromMessage(message) || "// Write your code here";
+      updates.filename = this.getFilenameForLanguage("javascript");
+      updates.tests = this.generateTestsFromMessage(message) || [];
+    } else if (lowerMessage.includes('make it a quiz') || lowerMessage.includes('change to quiz')) {
+      updates.type = 'quiz';
+      delete updates.initialCode;
+      delete updates.filename;
+      delete updates.tests;
+    } else if (lowerMessage.includes('make it info') || lowerMessage.includes('change to info')) {
+      updates.type = 'info';
+      delete updates.initialCode;
+      delete updates.filename;
+      delete updates.tests;
+    }
+    
+    await storage.updateSlide(slideToEdit.id, updates);
+    
+    return `I've updated slide #${slideIndex + 1}. The title is now "${updatedTitle}" and the content has been updated. ${
+      updates.type !== slideToEdit.type ? `I've also changed the slide type to "${updates.type}".` : ''
+    }`;
+  }
+  
+  private generateUpdatedContentFromMessage(message: string, currentContent: string): string {
+    // In a real AI implementation, this would be much more sophisticated
+    // For now, extract content that appears after certain phrases
+    
+    const contentMarkers = [
+      'with content:', 'content:', 'to say:', 
+      'with text:', 'text:', 'that says:',
+      'replace with:'
+    ];
+    
+    for (const marker of contentMarkers) {
+      const markerIndex = message.indexOf(marker);
+      if (markerIndex !== -1) {
+        return message.substring(markerIndex + marker.length).trim();
+      }
+    }
+    
+    // If no specific content is provided, make a small modification to the existing content
+    return currentContent + "\n\n[Updated based on your request]";
+  }
+  
+  private generateUpdatedTitleFromMessage(message: string, currentTitle: string): string {
+    const titleMarkers = [
+      'with title:', 'title:', 'titled:', 'rename to:'
+    ];
+    
+    const contentMarkers = [
+      'with content:', 'content:', 'to say:', 
+      'with text:', 'text:', 'that says:',
+      'replace with:'
+    ];
+    
+    for (const marker of titleMarkers) {
+      const markerIndex = message.indexOf(marker);
+      if (markerIndex !== -1) {
+        const restOfMessage = message.substring(markerIndex + marker.length).trim();
+        const newlineIndex = restOfMessage.indexOf('\n');
+        
+        if (newlineIndex !== -1) {
+          return restOfMessage.substring(0, newlineIndex).trim();
+        } else {
+          // Extract until the next possible marker
+          const nextMarkerIndex = contentMarkers.reduce((minIndex: number, marker: string) => {
+            const index = restOfMessage.indexOf(marker);
+            return index !== -1 && (index < minIndex || minIndex === -1) ? index : minIndex;
+          }, -1);
+          
+          if (nextMarkerIndex !== -1) {
+            return restOfMessage.substring(0, nextMarkerIndex).trim();
+          } else {
+            return restOfMessage;
+          }
+        }
+      }
+    }
+    
+    return currentTitle;
+  }
+  
+  private determineSlideType(message: string): 'info' | 'challenge' | 'quiz' {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('challenge') || lowerMessage.includes('coding exercise')) {
+      return 'challenge';
+    } else if (lowerMessage.includes('quiz') || lowerMessage.includes('test knowledge')) {
+      return 'quiz';
+    } else {
+      return 'info';
+    }
+  }
+  
+  private generateSlideTitleFromMessage(message: string): string {
+    const titleMarkers = [
+      'with title:', 'title:', 'titled:', 'called:'
+    ];
+    
+    for (const marker of titleMarkers) {
+      const markerIndex = message.indexOf(marker);
+      if (markerIndex !== -1) {
+        const restOfMessage = message.substring(markerIndex + marker.length).trim();
+        const newlineIndex = restOfMessage.indexOf('\n');
+        
+        if (newlineIndex !== -1) {
+          return restOfMessage.substring(0, newlineIndex).trim();
+        } else {
+          // If no specific title is found, generate one based on content
+          const contentStart = restOfMessage.substring(0, 30);
+          return contentStart + '...';
+        }
+      }
+    }
+    
+    // Default title if none specified
+    return "New Slide";
+  }
+  
+  private generateSlideContentFromMessage(message: string, type: 'info' | 'challenge' | 'quiz'): string {
+    const contentMarkers = [
+      'with content:', 'content:', 'to say:', 
+      'with text:', 'text:', 'that says:'
+    ];
+    
+    for (const marker of contentMarkers) {
+      const markerIndex = message.indexOf(marker);
+      if (markerIndex !== -1) {
+        return message.substring(markerIndex + marker.length).trim();
+      }
+    }
+    
+    // If no specific content is provided, generate default based on type
+    if (type === 'info') {
+      return "This is an informational slide. The content provides explanations and examples.";
+    } else if (type === 'challenge') {
+      return "This is a coding challenge. Write code to solve the problem described below:\n\n[Challenge description]";
+    } else {
+      return "This is a quiz slide to test your knowledge. Answer the following questions:\n\n1. [Question 1]\n   a) Option A\n   b) Option B\n   c) Option C\n   d) Option D";
+    }
+  }
+  
+  private determineTagsFromMessage(message: string): string[] {
+    const lowerMessage = message.toLowerCase();
+    const tags = [];
+    
+    const commonTags = [
+      'function', 'variable', 'loop', 'array', 
+      'object', 'conditional', 'class', 'event',
+      'dom', 'api', 'json', 'async', 'error',
+      'debugging', 'testing', 'algorithm'
+    ];
+    
+    for (const tag of commonTags) {
+      if (lowerMessage.includes(tag)) {
+        tags.push(tag);
+      }
+    }
+    
+    return tags.length > 0 ? tags : ['general'];
+  }
+  
+  private generateInitialCodeFromMessage(message: string): string | undefined {
+    const codeMarkers = [
+      'with initial code:', 'initial code:', 'starting code:', 
+      'code template:', 'code:'
+    ];
+    
+    for (const marker of codeMarkers) {
+      const markerIndex = message.indexOf(marker);
+      if (markerIndex !== -1) {
+        const codeStart = message.substring(markerIndex + marker.length).trim();
+        
+        // Check if the code is wrapped in code blocks
+        if (codeStart.startsWith('```')) {
+          const codeEnd = codeStart.indexOf('```', 3);
+          if (codeEnd !== -1) {
+            return codeStart.substring(3, codeEnd).trim();
+          }
+        }
+        
+        return codeStart;
+      }
+    }
+    
+    return "// Write your solution here\n\n";
+  }
+  
+  private generateTestsFromMessage(message: string): Array<{id: string; name: string; description: string; validation: string; type: 'regex' | 'js'}> | undefined {
+    // In a real AI implementation, this would generate tests based on the message content
+    // For now, return simple default tests
+    
+    return [
+      {
+        id: `test-${Date.now()}-1`,
+        name: "Function exists",
+        description: "Check if the required function exists",
+        validation: "return code.includes('function');",
+        type: 'js'
+      },
+      {
+        id: `test-${Date.now()}-2`,
+        name: "Returns correct value",
+        description: "Check if the function returns the expected value",
+        validation: "return code.includes('return');",
+        type: 'js'
+      }
+    ];
   }
   
   // Helper methods

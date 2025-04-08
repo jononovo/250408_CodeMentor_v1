@@ -85,7 +85,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Slide updates
+  // Create new slide
+  app.post("/api/lessons/:lessonId/slides", async (req, res) => {
+    try {
+      const lessonId = parseInt(req.params.lessonId);
+      
+      // Validate if lesson exists
+      const lesson = await storage.getLesson(lessonId);
+      if (!lesson) {
+        return res.status(404).json({ message: "Lesson not found" });
+      }
+      
+      // Get existing slides to determine order
+      const slides = await storage.getSlidesByLessonId(lessonId);
+      const order = slides.length;
+      
+      // Extract slide data from request
+      const { title, content, type, tags, initialCode, filename, tests } = req.body;
+      
+      // Create the new slide
+      const newSlide = await storage.createSlide({
+        lessonId,
+        title,
+        content,
+        type,
+        order,
+        tags: tags || [],
+        initialCode,
+        filename,
+        tests: tests || []
+      });
+      
+      res.status(201).json(newSlide);
+    } catch (error) {
+      console.error("Error creating slide:", error);
+      res.status(500).json({ message: "Failed to create slide" });
+    }
+  });
+
+  // Update existing slide
   app.patch("/api/lessons/:lessonId/slides/:slideId", async (req, res) => {
     try {
       const lessonId = parseInt(req.params.lessonId);
@@ -101,6 +139,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating slide:", error);
       res.status(500).json({ message: "Failed to update slide" });
+    }
+  });
+  
+  // Delete slide
+  app.delete("/api/lessons/:lessonId/slides/:slideId", async (req, res) => {
+    try {
+      const lessonId = parseInt(req.params.lessonId);
+      const slideId = parseInt(req.params.slideId);
+      
+      const slide = await storage.getSlide(slideId);
+      if (!slide || slide.lessonId !== lessonId) {
+        return res.status(404).json({ message: "Slide not found" });
+      }
+      
+      // Delete the slide
+      await storage.deleteSlide(slideId);
+      
+      // Reorder remaining slides
+      const slides = await storage.getSlidesByLessonId(lessonId);
+      const sortedSlides = slides.sort((a, b) => a.order - b.order);
+      
+      for (let i = 0; i < sortedSlides.length; i++) {
+        if (sortedSlides[i].order !== i) {
+          await storage.updateSlide(sortedSlides[i].id, { order: i });
+        }
+      }
+      
+      res.status(200).json({ message: "Slide deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting slide:", error);
+      res.status(500).json({ message: "Failed to delete slide" });
     }
   });
 
@@ -185,7 +254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Generate AI response
-      const aiResponse = await aiService.generateResponse(content, chatId);
+      // Handle the case where lessonId might be null
+      const lessonId = typeof chat.lessonId === 'number' ? chat.lessonId : undefined;
+      const aiResponse = await aiService.generateResponse(content, chatId, lessonId);
       
       // Store AI message
       const message = await storage.createMessage({
