@@ -2,6 +2,7 @@
  * AI Service for generating lesson content and chat responses
  * This is a simplified service that would be replaced by calls to an actual AI service
  */
+import { storage } from '../storage';
 
 interface GeneratedLesson {
   title: string;
@@ -104,9 +105,6 @@ class AIService {
   
   // Handle a request to edit slides
   private async handleSlideEditRequest(message: string, lessonId: number): Promise<string> {
-    // Import storage here to avoid circular dependencies
-    const { storage } = require('../storage');
-    
     // Get current slides
     const slides = await storage.getSlidesByLessonId(lessonId);
     if (!slides || slides.length === 0) {
