@@ -142,13 +142,35 @@ class AIService {
       }
       
       // Handle style selection message 
-      if (message.includes('style') && (message.includes('select') || message.includes('choose'))) {
+      if (message.includes('style') || 
+          message.includes('option') || 
+          message.includes('choose') || 
+          message.match(/[1-4]/) || 
+          message.includes('neon') || 
+          message.includes('brown') || 
+          message.includes('practical') || 
+          message.includes('interaction')) {
+        
         const style = this.extractStyleFromMessage(message);
         const topic = this.extractTopicFromMessage(message);
         
-        if (style) {
+        if (style && topic) {
           // This is the confirmation that will trigger actual lesson creation
-          return `Great choice! I'll use the "${this.getStyleDisplayName(style)}" style for this lesson. Let me create that for you now...
+          console.log(`[AI Service] Style selected: ${style} for topic: ${topic}`);
+          
+          // Start the lesson generation in the background
+          this.generateLesson(topic, userId, 'beginner', style)
+            .then(lessonId => {
+              console.log(`[AI Service] Lesson generated with ID: ${lessonId}`);
+            })
+            .catch(error => {
+              console.error(`[AI Service] Error generating lesson:`, error);
+            });
+          
+          // Return immediate confirmation response
+          return `Great choice! I'll use the "${this.getStyleDisplayName(style)}" style for this lesson. 
+
+I'm generating your lesson about "${topic}" now. This will take a few moments. You'll see the new lesson appear in your list when it's ready!
 
 __LESSON_GENERATING__:${topic}:${style}`;
         }

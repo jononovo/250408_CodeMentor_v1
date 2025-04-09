@@ -93,22 +93,85 @@ class RestackOpenAIService {
       
       // Check if this is a request to create a new lesson
       if (this.isNewLessonRequest(message)) {
+        // Extract topic and difficulty from message
+        const topic = this.extractTopicFromMessage(message);
+        const difficulty = this.extractDifficultyFromMessage(message);
+        
+        // First step: Present a lesson proposal with style options
+        console.log(`[AI Service] New lesson request detected for topic: ${topic}, difficulty: ${difficulty}`);
+        
+        // Generate a styled lesson proposal with style options
+        response = `
+# 🐯 Lesson Proposal: Learning ${topic} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Level
+
+I'd be happy to create a lesson about **${topic}** for you! Here's what I'm thinking:
+
+## 📚 Lesson Details:
+- **Topic:** ${topic}
+- **Difficulty:** ${difficulty}
+- **Format:** HTML with interactive elements
+- **Estimated Time:** 30-45 minutes
+
+## 🧩 What You'll Learn:
+- Core concepts of ${topic}
+- Practical implementation techniques
+- Best practices and common pitfalls
+- Hands-on coding challenges
+
+## 📝 Proposed Slides:
+1. Introduction to ${topic}
+2. Core Concepts Explained
+3. Example Code & Demonstration
+4. Interactive Challenge
+5. Common Patterns & Use Cases
+6. Quiz: Test Your Knowledge
+
+## 🎨 Choose a Style:
+Please select a visual style for your lesson:
+
+1. Brown Markdown 🏖️ - A relaxed, earthy style with tan/beige/brown colors
+2. Neon Racer 🏎️ - A vibrant, high-energy style with neon colors and animations
+3. Interaction Galore 💃🏽 - A style focused on interactive elements with plenty of clickable components
+4. Practical Project Building 🚀 - A style focused on progressive learning with each slide building on the previous
+
+Just reply with which style you prefer!
+`;
+      }
+      // Handle style selection for a lesson
+      else if (this.isStyleSelectionMessage(message)) {
         // Extract topic, difficulty and style from message
         const topic = this.extractTopicFromMessage(message);
         const difficulty = this.extractDifficultyFromMessage(message);
         const style = this.extractLessonStyle(message);
         
-        try {
-          // Generate a new lesson in HTML format by default with the specified style
-          const lesson = await this.generateLesson(topic, difficulty, 'html', style);
-          
-          // Format response with lesson details and ID for redirect
-          // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
-          let styleText = style ? ` using the ${style} style` : '';
-          response = `I've created a new lesson about ${topic}${styleText}. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
-        } catch (error: any) {
-          console.error('Error creating new lesson:', error);
-          response = `I'm sorry, I couldn't create a lesson about ${topic}. Error: ${error.message}`;
+        if (style && topic) {
+          try {
+            console.log(`[AI Service] Style selected: ${style} for topic: ${topic}`);
+            
+            // Generate a new lesson in HTML format by default with the specified style
+            const lesson = await this.generateLesson(topic, difficulty, 'html', style);
+            
+            // Format response with lesson details and ID for redirect
+            let styleDisplayName = '';
+            switch (style) {
+              case 'brown-markdown': styleDisplayName = 'Brown Markdown 🏖️'; break;
+              case 'neon-racer': styleDisplayName = 'Neon Racer 🏎️'; break;
+              case 'interaction-galore': styleDisplayName = 'Interaction Galore 💃🏽'; break;
+              case 'project-building': styleDisplayName = 'Practical Project Building 🚀'; break;
+              default: styleDisplayName = style;
+            }
+            
+            response = `Great choice! I'll use the "${styleDisplayName}" style for this lesson.
+
+I'm generating your lesson about "${topic}" now. This will take a few moments. You'll see the new lesson appear in your list when it's ready!
+
+__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
+          } catch (error: any) {
+            console.error('Error creating new lesson:', error);
+            response = `I'm sorry, I couldn't create a lesson about ${topic}. Error: ${error.message}`;
+          }
+        } else {
+          response = "I'm not sure which style you'd like to use. Could you please select one of the style options I presented?";
         }
       }
       // Check if this is a request to edit a slide
@@ -312,7 +375,36 @@ When the user asks for changes to the lesson or requests new content, use these 
     return createPatterns.some(pattern => pattern.test(message));
   }
   
+  private isStyleSelectionMessage(message: string): boolean {
+    // Check if it's a style selection message
+    const lowerMsg = message.toLowerCase();
+    
+    // Check if it mentions style selection explicitly
+    if (lowerMsg.includes('style') || lowerMsg.includes('option') || lowerMsg.includes('choose')) {
+      return true;
+    }
+    
+    // Check for numeric selection
+    if (lowerMsg.match(/\b[1-4]\b/) && !this.isNewLessonRequest(message)) {
+      return true;
+    }
+    
+    // Check for style names
+    if ((lowerMsg.includes('brown') || lowerMsg.includes('markdown') || 
+         lowerMsg.includes('neon') || lowerMsg.includes('racer') ||
+         lowerMsg.includes('interaction') || lowerMsg.includes('galore') ||
+         lowerMsg.includes('practical') || lowerMsg.includes('project')) && 
+        !this.isNewLessonRequest(message)) {
+      return true;
+    }
+    
+    return false;
+  }
+  
   private extractLessonStyle(message: string): string | undefined {
+    const messageLower = message.toLowerCase();
+    
+    // Check for emoji style names first
     const stylePatterns = [
       { pattern: /Brown Markdown 🏖️/i, style: 'brown-markdown' },
       { pattern: /Interaction Galore 💃🏽/i, style: 'interaction-galore' },
@@ -324,6 +416,28 @@ When the user asks for changes to the lesson or requests new content, use these 
       if (pattern.test(message)) {
         return style;
       }
+    }
+    
+    // Check for style names without emojis
+    if (messageLower.includes('brown') || messageLower.includes('markdown') || messageLower.includes('earthy')) {
+      return 'brown-markdown';
+    } else if (messageLower.includes('neon') || messageLower.includes('racer') || messageLower.includes('vibrant')) {
+      return 'neon-racer';
+    } else if (messageLower.includes('interaction') || messageLower.includes('galore')) {
+      return 'interaction-galore';
+    } else if (messageLower.includes('practical') || messageLower.includes('project') || messageLower.includes('progressive')) {
+      return 'project-building';
+    }
+    
+    // Check for numeric selection
+    if (messageLower.includes('1') || messageLower.includes('first') || messageLower.includes('option 1')) {
+      return 'brown-markdown';
+    } else if (messageLower.includes('2') || messageLower.includes('second') || messageLower.includes('option 2')) {
+      return 'neon-racer';
+    } else if (messageLower.includes('3') || messageLower.includes('third') || messageLower.includes('option 3')) {
+      return 'interaction-galore';
+    } else if (messageLower.includes('4') || messageLower.includes('fourth') || messageLower.includes('option 4')) {
+      return 'project-building';
     }
     
     return undefined;
