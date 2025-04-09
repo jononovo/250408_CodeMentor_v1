@@ -329,8 +329,9 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                       
                       {/* Check if this message contains a style selection request */}
                       {(msg.content.includes('__SUGGESTION__:STYLE_SELECT:') || 
-                        msg.content.includes('Proposed Slides:') ||
-                        (msg.role === 'assistant' && msg.content.includes('lesson about') && !msg.content.includes('style'))) && (
+                       (msg.content.includes('Proposed Slides:') && 
+                        !msg.content.includes('style for the lesson about') &&
+                        !processedMessages.has(msg.id))) && (
                         <div className="mt-3">
                           <div className="mb-2 text-center">
                             <span className="text-sm font-semibold text-primary">Choose a style for your lesson:</span>
@@ -363,7 +364,12 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                 <>
                                   <button 
                                     className="bg-amber-100 border border-amber-200 hover:bg-amber-200 text-amber-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`Use the Brown Markdown 🏖️ style for the lesson about ${topic}`, 'baloo')}
+                                    onClick={() => {
+                                      // Instead of sending directly, set the text in the input field for user to confirm
+                                      setMessage(`Use the Brown Markdown 🏖️ style for the lesson about ${topic}`);
+                                      // Focus on the input field
+                                      setTimeout(() => inputRef.current?.focus(), 0);
+                                    }}
                                   >
                                     <span className="text-lg mb-1">🏖️</span>
                                     <span className="font-medium">Brown Markdown</span>
@@ -372,7 +378,12 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                   
                                   <button 
                                     className="bg-indigo-100 border border-indigo-200 hover:bg-indigo-200 text-indigo-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`Use the Neon Racer 🏎️ style for the lesson about ${topic}`, 'baloo')}
+                                    onClick={() => {
+                                      // Instead of sending directly, set the text in the input field for user to confirm
+                                      setMessage(`Use the Neon Racer 🏎️ style for the lesson about ${topic}`);
+                                      // Focus on the input field
+                                      setTimeout(() => inputRef.current?.focus(), 0);
+                                    }}
                                   >
                                     <span className="text-lg mb-1">🏎️</span>
                                     <span className="font-medium">Neon Racer</span>
@@ -381,7 +392,12 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                   
                                   <button 
                                     className="bg-pink-100 border border-pink-200 hover:bg-pink-200 text-pink-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`Use the Interaction Galore 💃🏽 style for the lesson about ${topic}`, 'baloo')}
+                                    onClick={() => {
+                                      // Instead of sending directly, set the text in the input field for user to confirm
+                                      setMessage(`Use the Interaction Galore 💃🏽 style for the lesson about ${topic}`);
+                                      // Focus on the input field
+                                      setTimeout(() => inputRef.current?.focus(), 0);
+                                    }}
                                   >
                                     <span className="text-lg mb-1">💃🏽</span>
                                     <span className="font-medium">Interaction Galore</span>
@@ -390,7 +406,12 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                   
                                   <button 
                                     className="bg-blue-100 border border-blue-200 hover:bg-blue-200 text-blue-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`Use the Practical Project Building 🚀 style for the lesson about ${topic}`, 'baloo')}
+                                    onClick={() => {
+                                      // Instead of sending directly, set the text in the input field for user to confirm
+                                      setMessage(`Use the Practical Project Building 🚀 style for the lesson about ${topic}`);
+                                      // Focus on the input field
+                                      setTimeout(() => inputRef.current?.focus(), 0);
+                                    }}
                                   >
                                     <span className="text-lg mb-1">🚀</span>
                                     <span className="font-medium">Practical Project</span>
@@ -428,7 +449,12 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                               <div className="mt-2">
                                 <button 
                                   className="w-full bg-green-100 border border-green-200 hover:bg-green-200 text-green-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                  onClick={() => sendMessage(`You decide the best style for the lesson about ${topic}`, 'baloo')}
+                                  onClick={() => {
+                                    // Instead of sending directly, set the text in the input field for user to confirm
+                                    setMessage(`You decide the best style for the lesson about ${topic}`);
+                                    // Focus on the input field
+                                    setTimeout(() => inputRef.current?.focus(), 0);
+                                  }}
                                 >
                                   <span className="text-lg mb-1">✨</span>
                                   <span className="font-medium">You decide!</span>
