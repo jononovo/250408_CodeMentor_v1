@@ -124,18 +124,125 @@ class AIService {
       if (this.isNewLessonRequest(message)) {
         const topic = this.extractTopicFromMessage(message);
         const difficulty = this.extractDifficultyFromMessage(message);
-        const style = this.extractStyleFromMessage(message);
         
-        try {
-          // Generate a new lesson in HTML format with the detected style (or default)
-          const lesson = await this.generateLesson(topic, difficulty, 'html', style);
+        // Check if this is a response to a lesson creation proposal
+        if (/yes, that looks good/i.test(message)) {
+          // This is a confirmation of a previous lesson proposal
+          const previousMessages = await storage.getMessagesByChatId(chatId);
+          let lastMessage = previousMessages.filter(m => m.role === 'assistant').pop();
           
-          // Format response with lesson details and ID for redirect
-          // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
-          response = `I've created a new lesson about ${topic} using the ${style || 'default'} style. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
-        } catch (error: any) {
-          console.error('Error creating new lesson:', error);
-          response = `I'm sorry, I couldn't create a lesson about ${topic}. Error: ${error.message}`;
+          if (lastMessage && lastMessage.content.includes('choose a style for your lesson')) {
+            // The user has selected a style choice in a previous interaction
+            // Extract the style from the user message
+            const style = this.extractStyleFromMessage(message) || "brown-markdown";
+            
+            try {
+              // Get the topic and difficulty from the previous context
+              let contextTopic = topic;
+              let contextDifficulty = difficulty;
+              
+              // Loop through previous messages to find the proposed lesson details
+              for (const msg of previousMessages.reverse()) {
+                if (msg.role === 'assistant' && msg.content.includes('Lesson:')) {
+                  const proposalMatch = msg.content.match(/Topic:\s*(.*?)\s*\n/i);
+                  const difficultyMatch = msg.content.match(/Level:\s*(.*?)\s*(\n|$)/i);
+                  
+                  if (proposalMatch && proposalMatch[1]) {
+                    contextTopic = proposalMatch[1].trim();
+                  }
+                  
+                  if (difficultyMatch && difficultyMatch[1]) {
+                    const diffText = difficultyMatch[1].toLowerCase().trim();
+                    if (diffText.includes('beginner')) {
+                      contextDifficulty = 'beginner';
+                    } else if (diffText.includes('intermediate')) {
+                      contextDifficulty = 'intermediate';
+                    } else if (diffText.includes('advanced')) {
+                      contextDifficulty = 'advanced';
+                    }
+                  }
+                  
+                  break;
+                }
+              }
+              
+              // Generate a new lesson in HTML format with the selected style
+              const lesson = await this.generateLesson(contextTopic, contextDifficulty, 'html', style);
+              
+              // Format response with lesson details and ID for redirect
+              // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
+              response = `I've created your lesson about ${contextTopic} using the ${this.getStyleDisplayName(style)} style. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
+            } catch (error: any) {
+              console.error('Error creating new lesson:', error);
+              response = `I'm sorry, I couldn't create the lesson. Error: ${error.message}`;
+            }
+          } else {
+            // This is a confirmation of a lesson proposal, now ask for style preference
+            response = this.generateStyleSelectionPrompt(topic, difficulty);
+          }
+        } else if (/i'd like to change it to/i.test(message)) {
+          // The user wants to modify the lesson proposal
+          // For simplicity, just present a new lesson proposal
+          const updatedTopic = this.extractTopicFromMessage(message) || topic;
+          const updatedDifficulty = this.extractDifficultyFromMessage(message) || difficulty;
+          
+          response = this.generateLessonProposal(updatedTopic, updatedDifficulty);
+        } else if (/brown[-\s]?markdown|neon[-\s]?racer|interaction[-\s]?galore|practical[-\s]?project/i.test(message) || /you decide/i.test(message)) {
+          // The user is selecting a style from the options
+          let style = this.extractStyleFromMessage(message);
+          
+          // If "you decide" was selected, randomly choose a style
+          if (/you decide/i.test(message)) {
+            const styles = ["brown-markdown", "neon-racer", "interaction-galore", "practical-project"];
+            style = styles[Math.floor(Math.random() * styles.length)];
+          }
+          
+          try {
+            // Extract the topic and difficulty from previous context
+            let contextTopic = topic;
+            let contextDifficulty = difficulty;
+            
+            // Get previous messages to find context
+            const previousMessages = await storage.getMessagesByChatId(chatId);
+            
+            // Loop through previous messages to find the proposed lesson details
+            for (const msg of previousMessages.reverse()) {
+              if (msg.role === 'assistant' && msg.content.includes('Lesson:')) {
+                const proposalMatch = msg.content.match(/Topic:\s*(.*?)\s*\n/i);
+                const difficultyMatch = msg.content.match(/Level:\s*(.*?)\s*(\n|$)/i);
+                
+                if (proposalMatch && proposalMatch[1]) {
+                  contextTopic = proposalMatch[1].trim();
+                }
+                
+                if (difficultyMatch && difficultyMatch[1]) {
+                  const diffText = difficultyMatch[1].toLowerCase().trim();
+                  if (diffText.includes('beginner')) {
+                    contextDifficulty = 'beginner';
+                  } else if (diffText.includes('intermediate')) {
+                    contextDifficulty = 'intermediate';
+                  } else if (diffText.includes('advanced')) {
+                    contextDifficulty = 'advanced';
+                  }
+                }
+                
+                break;
+              }
+            }
+            
+            // Generate a new lesson in HTML format with the selected style
+            const lesson = await this.generateLesson(contextTopic, contextDifficulty, 'html', style);
+            
+            // Format response with lesson details and ID for redirect
+            // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
+            response = `I've created your lesson about ${contextTopic} using the ${this.getStyleDisplayName(style)} style. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
+          } catch (error: any) {
+            console.error('Error creating new lesson:', error);
+            response = `I'm sorry, I couldn't create the lesson. Error: ${error.message}`;
+          }
+        } else {
+          // This is a new lesson request, present a proposal
+          response = this.generateLessonProposal(topic, difficulty);
         }
       }
       // Check if this is a request to edit a slide
@@ -194,7 +301,10 @@ class AIService {
       /generate (a|new) lesson/i,
       /teach me (about|how to)/i,
       /create (a|an) tutorial/i,
-      /build (a|an) lesson/i
+      /build (a|an) lesson/i,
+      /i want to create a lesson/i,
+      /i'd like a lesson/i,
+      /can you make a lesson/i
     ];
     return createPatterns.some(pattern => pattern.test(message));
   }
@@ -332,6 +442,80 @@ class AIService {
     return undefined;
   }
 
+  /**
+   * Generate a styled lesson proposal with details about the lesson
+   */
+  private generateLessonProposal(topic: string, difficulty: string): string {
+    const language = this.detectLanguageFromTopic(topic);
+    const title = this.generateTitle(topic, difficulty);
+    
+    // Generate an estimated time based on difficulty
+    let estimatedTime = '15-20 minutes';
+    if (difficulty === 'intermediate') {
+      estimatedTime = '25-35 minutes';
+    } else if (difficulty === 'advanced') {
+      estimatedTime = '40-60 minutes';
+    }
+    
+    // Format the response with styled markdown
+    return `
+I'd be happy to create a lesson for you! Here's what I'm thinking:
+
+### 📋 Lesson Proposal:
+
+**Lesson:** ${title}
+**Topic:** ${topic}
+**Description:** An interactive ${difficulty} level lesson about ${topic} using ${language}. You'll learn key concepts, see practical examples, and complete coding challenges.
+**Duration:** ${estimatedTime}
+**Level:** ${this.capitalizeFirstLetter(difficulty)}
+**Language:** ${language}
+
+**What you'll learn:**
+- Core concepts of ${topic}
+- How to use ${topic} in real-world scenarios
+- Best practices and common pitfalls
+- Hands-on coding experience
+
+Does this look good to you?
+
+__SUGGESTION__:Yes, that looks good.
+__SUGGESTION__:I'd like to change it to
+`;
+  }
+  
+  /**
+   * Generate a prompt for selecting lesson style with visual options
+   */
+  private generateStyleSelectionPrompt(topic: string, difficulty: string): string {
+    return `
+Got it! Now finally, what style of lesson would you prefer today?
+
+__SUGGESTION__:Brown Markdown 🏖️ - A relaxed, earthy style with tan/beige/brown colors.
+__SUGGESTION__:Neon Racer 🏎️ - A vibrant, high-energy style with neon colors and animations.
+__SUGGESTION__:Interaction Galore 💃🏽 - A style focused on interactivity with lots of clickable elements.
+__SUGGESTION__:Practical Project Building 🚀 - A progressive style that builds concepts step by step.
+__SUGGESTION__:You decide!
+`;
+  }
+  
+  /**
+   * Get a display name for style with emoji
+   */
+  private getStyleDisplayName(style: string): string {
+    switch(style) {
+      case 'brown-markdown':
+        return 'Brown Markdown 🏖️';
+      case 'neon-racer':
+        return 'Neon Racer 🏎️';
+      case 'interaction-galore':
+        return 'Interaction Galore 💃🏽';
+      case 'practical-project':
+        return 'Practical Project Building 🚀';
+      default:
+        return 'Default Style';
+    }
+  }
+  
   private extractStyleFromMessage(message: string): string {
     // Extract the style from the user message
     if (/brown[-\s]?markdown/i.test(message) || /earthy/i.test(message) || /relaxed/i.test(message)) {
