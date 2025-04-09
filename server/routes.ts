@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate a lesson using AI with the Restack OpenAI integration
-      const generatedLesson = await restackOpenAIService.generateLesson(topic, difficulty, format, description);
+      const generatedLesson = await restackOpenAIService.generateLesson(topic, difficulty, format || "html");
       
       // Create lesson in storage
       const lesson = await storage.createLesson({
@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: generatedLesson.description,
         difficulty: difficulty || "beginner",
         language: generatedLesson.language || "javascript",
-        format: format || "markdown",
+        format: format || "html",
         estimatedTime: generatedLesson.estimatedTime || "15 min",
       });
 

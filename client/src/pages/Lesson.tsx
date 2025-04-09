@@ -70,7 +70,19 @@ export default function Lesson() {
     );
   }
 
-  const currentSlide = lesson.slides[currentSlideIndex];
+  // Make sure slides array exists and has elements
+  if (!lesson.slides || lesson.slides.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">No slides available</h2>
+          <p className="text-gray-500">This lesson doesn't have any slides yet.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentSlide = lesson.slides[currentSlideIndex] || {};
   
   return (
     <div className="flex h-full overflow-hidden">
@@ -80,7 +92,7 @@ export default function Lesson() {
         slides={lesson.slides}
         currentSlideIndex={currentSlideIndex}
         onSlideChange={setCurrentSlideIndex}
-        format={lesson.format}
+        format={lesson.format || 'markdown'}
         testResults={testResults}
       />
       
@@ -88,7 +100,7 @@ export default function Lesson() {
       <CodeEditor
         initialCode={currentSlide.initialCode || "// Write your code here\n"}
         filename={currentSlide.filename || "script.js"}
-        tests={currentSlide.tests}
+        tests={currentSlide.tests || []}
         onTestsComplete={handleTestsComplete}
         onCodeChange={handleCodeChange}
       />

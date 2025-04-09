@@ -18,7 +18,8 @@ class RestackOpenAIService {
    */
   async generateLesson(
     topic: string,
-    difficulty: string = 'beginner'
+    difficulty: string = 'beginner',
+    format: string = 'html'
   ) {
     try {
       console.log(`[AI Service] Generating lesson about "${topic}" with difficulty "${difficulty}"`);
@@ -35,6 +36,7 @@ class RestackOpenAIService {
         description: `Learn about ${topic} with this ${difficulty} level lesson.`,
         language,
         difficulty: difficulty as any,
+        format: format, // Use the provided format parameter
         estimatedTime: '15 minutes'
       });
       
@@ -95,8 +97,8 @@ class RestackOpenAIService {
         const difficulty = this.extractDifficultyFromMessage(message);
         
         try {
-          // Generate a new lesson
-          const lesson = await this.generateLesson(topic, difficulty);
+          // Generate a new lesson in HTML format by default
+          const lesson = await this.generateLesson(topic, difficulty, 'html');
           
           // Format response with lesson details and ID for redirect
           // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle

@@ -112,7 +112,7 @@ export async function generateToolResponse(
 export async function generateLesson(
   topic: string,
   difficulty: string = "beginner",
-  format: string = "markdown",
+  format: string = "html",
   description?: string
 ) {
   try {

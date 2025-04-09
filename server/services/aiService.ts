@@ -36,11 +36,12 @@ class AIService {
   async generateLesson(
     topic: string,
     difficulty: string = 'beginner',
+    format: string = 'html',
     description?: string
   ) {
     try {
       // Generate lesson content using OpenAI
-      const generatedContent = await generateLesson(topic, difficulty, description) as GeneratedLesson;
+      const generatedContent = await generateLesson(topic, difficulty, format, description) as GeneratedLesson;
       
       // Create the lesson in storage
       const lesson = await storage.createLesson({
@@ -117,8 +118,8 @@ class AIService {
         const difficulty = this.extractDifficultyFromMessage(message);
         
         try {
-          // Generate a new lesson
-          const lesson = await this.generateLesson(topic, difficulty);
+          // Generate a new lesson in HTML format by default
+          const lesson = await this.generateLesson(topic, difficulty, 'html');
           
           // Format response with lesson details and ID for redirect
           // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
