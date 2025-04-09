@@ -122,13 +122,17 @@ class AIService {
     lessonId?: number
   ): Promise<string> {
     try {
-      // Check if this is a request to create a new lesson
+      // Extract persona type from message if present
+      const personaMatch = message.match(/\[As (Mumu|Baloo).+?\]/i);
+      const personaType = personaMatch ? (personaMatch[1].toLowerCase() === 'mumu' ? 'mumu' : 'baloo') : 'baloo';
+      
+      // Check if this is a request to create a new lesson - regardless of persona
       if (this.isNewLessonRequest(message)) {
         // Extract topic from message
         const topic = this.extractTopicFromMessage(message);
         const difficulty = this.extractDifficultyFromMessage(message);
         
-        // Generate a lesson proposal with style options
+        // Generate a lesson proposal with style options - same flow for both personas
         return this.generateLessonProposal(topic, difficulty);
       }
       
@@ -200,29 +204,50 @@ __LESSON_GENERATING__:${topic}:${style}`;
       
       this.processedMessages.add(requestFingerprint);
       
-      // Add personality traits to make the chat more engaging
-      const personalityContext = `
-        You are Mumu the Coding Tiger 🐯, a cheerful and enthusiastic coding teacher who specializes in making coding fun for beginners.
-        Your communication style:
-        - Use emojis frequently to express emotions 🎉
-        - Speak with enthusiasm and excitement
-        - Be encouraging and supportive 💪
-        - Use simple, clear explanations
-        - Occasionally use playful tiger-related metaphors
-        - Keep explanations concise (2-3 paragraphs max)
-        - Use markdown for formatting code and explanations
+      // Determine which persona to use based on the message
+      const personaContext = personaType === 'mumu' 
+        ? `
+          You are Mumu the Coding Ninja 🥷, a fun and high-energy coding tutor who specializes in helping students learn to code.
+          Your communication style:
+          - Use emojis frequently to express emotions 🎉
+          - Speak with enthusiasm and excitement
+          - Be encouraging and supportive 💪
+          - Use simple, clear explanations
+          - Keep explanations concise (2-3 paragraphs max)
+          - Use markdown for formatting code and explanations
+          
+          Your name is Mumu and you should refer to yourself as Mumu. When introducing yourself, mention you're a coding ninja.
+          `
+        : `
+          You are Baloo the Lesson Creator 🐻, a warm and wise teacher who specializes in creating structured learning experiences.
+          Your communication style:
+          - Use a warm, friendly tone
+          - Be methodical and organized in your explanations
+          - Focus on educational structure and learning objectives
+          - Present information in a sequential, logical way
+          - Use markdown for formatting code and explanations
+          
+          Your name is Baloo and you should refer to yourself as Baloo. When introducing yourself, mention you're a lesson creator.
+          `;
+      
+      // Add sequential flow instructions that apply to both personas
+      const sharedInstructions = `
+        Regardless of your persona, when asked to create a lesson, always follow this sequence:
+        1. First propose a lesson overview with title, difficulty, and estimated completion time
+        2. Then offer style choices for the lesson (present the available styles with brief descriptions)
+        3. Once the user selects a style, confirm their choice and generate the complete lesson
         
-        Your name is Mumu and you should refer to yourself as Mumu. When introducing yourself, mention you're a coding tiger.
+        All lessons should be created in HTML format by default for a richer interactive experience.
       `;
       
       // Generate the response
       if (lessonId) {
         // For lesson-specific chats, use more context
-        const systemMessage = systemContext + "\n" + personalityContext;
+        const systemMessage = systemContext + "\n" + personaContext + "\n" + sharedInstructions;
         response = await generateChatResponse(messages, systemMessage);
       } else {
-        // For general chats, use the default personality
-        response = await generateChatResponse(messages, personalityContext);
+        // For general chats, use the persona context with shared instructions
+        response = await generateChatResponse(messages, personaContext + "\n" + sharedInstructions);
       }
       
       // Save the new message to the database if this is part of a chat
