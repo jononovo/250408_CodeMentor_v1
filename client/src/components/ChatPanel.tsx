@@ -116,7 +116,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
           </svg>
         </Button>
       ) : (
-        <div className="bg-white rounded-lg shadow-lg w-96 max-h-[500px] flex flex-col overflow-hidden">
+        <div className="bg-white rounded-lg shadow-lg w-[400px] max-h-[600px] flex flex-col overflow-hidden">
           <div className="bg-primary text-white p-3 flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2">
@@ -195,6 +195,59 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
           </div>
           
           <div className="border-t p-3">
+            {(!lessonId || messages.length === 0) && (
+              <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("Create a new lesson about")}
+                >
+                  <span>Create a new lesson</span>
+                </button>
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("Explain the concept of")}
+                >
+                  <span>Explain a concept</span>
+                </button>
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("How can I use this platform to")}
+                >
+                  <span>How to use this platform</span>
+                </button>
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("Suggest a coding challenge for")}
+                >
+                  <span>Get a coding challenge</span>
+                </button>
+              </div>
+            )}
+            
+            {/* Action buttons for when in a lesson context */}
+            {lessonId && messages.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("Update this slide with more interactive elements")}
+                >
+                  <span>Improve this slide</span>
+                </button>
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("Help me understand this code: ")}
+                >
+                  <span>Explain this code</span>
+                </button>
+                <button 
+                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
+                  onClick={() => setMessage("Give me a hint for this challenge")}
+                >
+                  <span>Get a hint</span>
+                </button>
+              </div>
+            )}
+            
             <form className="flex flex-col" onSubmit={handleSubmit}>
               <div className="flex">
                 <textarea 
