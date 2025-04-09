@@ -123,9 +123,13 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         content = content.substring(0, styleSection).trim();
       }
       
-      // Append style selection buttons
-      content += `\n\n__SUGGESTION__:STYLE_SELECT:${topic}`;
+      // Add a hidden suggestion marker that will trigger the UI but won't be visible
+      // The actual marker will be in a separate div controlled by the component
+      content += `\n\n<span class="hidden">__SUGGESTION__:STYLE_SELECT:${topic}</span>`;
     }
+    
+    // Handle any existing suggestion markers and hide them
+    content = content.replace(/__SUGGESTION__:STYLE_SELECT:[^_\n]+(\n|$)/g, '');
     
     // Improve formatting for section headers and line spacing
     content = content.replace(/\n(#+\s+[^\n]+)/g, '\n\n$1');
