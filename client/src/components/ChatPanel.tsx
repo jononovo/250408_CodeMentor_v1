@@ -16,7 +16,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   
   const { chat, messages, sendMessage, isLoading } = useAI(lessonId);
 
@@ -116,7 +116,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
           </svg>
         </Button>
       ) : (
-        <div className="bg-white rounded-lg shadow-lg w-80 max-h-[500px] flex flex-col overflow-hidden">
+        <div className="bg-white rounded-lg shadow-lg w-96 max-h-[500px] flex flex-col overflow-hidden">
           <div className="bg-primary text-white p-3 flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2">
@@ -195,23 +195,34 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
           </div>
           
           <div className="border-t p-3">
-            <form className="flex items-center" onSubmit={handleSubmit}>
-              <input 
-                ref={inputRef}
-                type="text" 
-                className="flex-1 border border-gray-300 rounded-l-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
-                placeholder="Ask Mumu for help..." 
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                disabled={isLoading}
-              />
-              <Button 
-                type="submit" 
-                className="bg-primary text-white rounded-r-md py-2 px-3 hover:bg-primary/90"
-                disabled={isLoading}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+            <form className="flex flex-col" onSubmit={handleSubmit}>
+              <div className="flex">
+                <textarea 
+                  ref={inputRef}
+                  className="flex-1 border border-gray-300 rounded-l-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[60px] resize-none" 
+                  placeholder="Ask Mumu for help..." 
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  disabled={isLoading}
+                  rows={3}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
+                />
+                <Button 
+                  type="submit" 
+                  className="bg-primary text-white rounded-r-md py-2 px-3 hover:bg-primary/90 h-auto self-stretch"
+                  disabled={isLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="text-xs text-gray-500 mt-1 text-right">
+                Press Shift+Enter for new line, Enter to send
+              </div>
             </form>
           </div>
         </div>
