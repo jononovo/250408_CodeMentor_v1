@@ -305,7 +305,9 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                       ? 'bg-primary-100' 
                       : 'bg-gray-100'
                   }`}>
-                    <div className="text-sm text-gray-800">
+                    <div 
+                      className="text-sm text-gray-800"
+                    >
                       {/* Render the message content with HTML */}
                       <div dangerouslySetInnerHTML={{ __html: formatMessage(msg.content, msg.id) }} />
                       
@@ -359,7 +361,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                           })()}
                         </div>
                       )}
-                    </div>
+                    
                     <span className="text-xs text-gray-500 block mt-1">
                       {formatTime(msg.timestamp)}
                     </span>
