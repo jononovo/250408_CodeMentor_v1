@@ -78,6 +78,32 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
       }
     }
     
+    // Check for the lesson generation in progress message
+    if (content.includes('__LESSON_GENERATING__:')) {
+      // This triggers the actual generation
+      const metaMatch = content.match(/__LESSON_GENERATING__:([^:]+):([^:]+)$/);
+      
+      if (metaMatch && !processedMessages.has(messageId)) {
+        // Extract topic and style
+        const topic = metaMatch[1];
+        const style = metaMatch[2];
+        
+        // Mark this message as processed
+        processedMessages.add(messageId);
+        
+        // Send a follow-up message to create the lesson with the selected style
+        setTimeout(() => {
+          sendMessage(`[As Baloo the Lesson Creator 🐻] Create a new lesson about ${topic} with the ${style} style`);
+        }, 500);
+        
+        // Remove the metadata from the message for display
+        content = content.replace(/__LESSON_GENERATING__:[^:]+:[^:]+$/, '');
+      } else {
+        // Always remove the metadata from the message for display
+        content = content.replace(/__LESSON_GENERATING__:[^:]+:[^:]+$/, '');
+      }
+    }
+    
     // Handle code blocks
     let formattedContent = content;
     const codeBlockRegex = /```([\s\S]+?)```/g;

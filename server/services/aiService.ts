@@ -143,7 +143,10 @@ class AIService {
         const topic = this.extractTopicFromMessage(message);
         
         if (style) {
-          return `Great choice! I'll use the "${this.getStyleDisplayName(style)}" style for this lesson. Let me create that for you now...`;
+          // This is the confirmation that will trigger actual lesson creation
+          return `Great choice! I'll use the "${this.getStyleDisplayName(style)}" style for this lesson. Let me create that for you now...
+
+__LESSON_GENERATING__:${topic}:${style}`;
         }
       }
       

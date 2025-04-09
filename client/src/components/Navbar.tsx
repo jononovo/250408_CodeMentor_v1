@@ -33,12 +33,6 @@ export default function Navbar() {
             </div>
           </div>
           <div className="flex items-center">
-            <Link href="/new-lesson">
-              <Button variant="outline" className="mr-3 bg-primary-50 hover:bg-primary-100 text-primary-600 px-4 py-2 rounded-md text-sm font-medium flex items-center">
-                <Plus className="h-4 w-4 mr-1" />
-                New Lesson
-              </Button>
-            </Link>
             <div className="ml-3 relative">
               <div>
                 <button type="button" className="flex text-sm bg-gray-800 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" id="user-menu-button">

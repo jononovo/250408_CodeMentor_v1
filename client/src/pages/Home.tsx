@@ -32,7 +32,7 @@ export default function Home() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-display font-bold text-gray-900">My Coding Lessons</h1>
         <Link href="/new-lesson">
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30">
             <Plus className="h-4 w-4 mr-2" />
             New Lesson
           </Button>
@@ -96,7 +96,7 @@ export default function Home() {
             You haven't created any coding lessons yet. Start your learning journey by creating one!
           </p>
           <Link href="/new-lesson">
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30">
               <Plus className="h-4 w-4 mr-2" />
               Create Your First Lesson
             </Button>

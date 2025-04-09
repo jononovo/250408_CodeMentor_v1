@@ -36,7 +36,13 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground min-h-screen;
+    overflow-y: auto !important; /* Always allow scrolling on the page */
+  }
+  
+  html {
+    height: 100%;
+    overflow-y: auto !important;
   }
 
   /* Custom scrollbar */
