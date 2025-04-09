@@ -102,39 +102,22 @@ class RestackOpenAIService {
         
         // Generate a styled lesson proposal with style options
         response = `
-# 🐯 Lesson Proposal: Learning ${topic} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Level
+# 🐯 Lesson on ${topic} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Level
 
-I'd be happy to create a lesson about **${topic}** for you! Here's what I'm thinking:
+I'll create an interactive lesson about **${topic}** for you!
 
-## 📚 Lesson Details:
-- **Topic:** ${topic}
-- **Difficulty:** ${difficulty}
-- **Format:** HTML with interactive elements
-- **Estimated Time:** 30-45 minutes
-
-## 🧩 What You'll Learn:
-- Core concepts of ${topic}
-- Practical implementation techniques
-- Best practices and common pitfalls
-- Hands-on coding challenges
-
-## 📝 Proposed Slides:
-1. Introduction to ${topic}
-2. Core Concepts Explained
-3. Example Code & Demonstration
-4. Interactive Challenge
-5. Common Patterns & Use Cases
-6. Quiz: Test Your Knowledge
+## 📚 Quick Overview:
+- Interactive HTML format
+- Learn core concepts, implementation, and best practices
+- Hands-on coding challenge included
 
 ## 🎨 Choose a Style:
-Please select a visual style for your lesson:
+1. Brown Markdown 🏖️ - Relaxed and earthy
+2. Neon Racer 🏎️ - Vibrant and energetic
+3. Interaction Galore 💃🏽 - Highly interactive
+4. Practical Project Building 🚀 - Progressive learning
 
-1. Brown Markdown 🏖️ - A relaxed, earthy style with tan/beige/brown colors
-2. Neon Racer 🏎️ - A vibrant, high-energy style with neon colors and animations
-3. Interaction Galore 💃🏽 - A style focused on interactive elements with plenty of clickable components
-4. Practical Project Building 🚀 - A style focused on progressive learning with each slide building on the previous
-
-Just reply with which style you prefer!
+Select a style to continue!
 `;
       }
       // Handle style selection for a lesson
