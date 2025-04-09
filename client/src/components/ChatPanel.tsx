@@ -194,57 +194,61 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
             <div ref={messagesEndRef} />
           </div>
           
-          <div className="border-t p-3">
-            {(!lessonId || messages.length === 0) && (
-              <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("Create a new lesson about")}
-                >
-                  <span>Create a new lesson</span>
-                </button>
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("Explain the concept of")}
-                >
-                  <span>Explain a concept</span>
-                </button>
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("How can I use this platform to")}
-                >
-                  <span>How to use this platform</span>
-                </button>
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("Suggest a coding challenge for")}
-                >
-                  <span>Get a coding challenge</span>
-                </button>
-              </div>
-            )}
-            
-            {/* Action buttons for when in a lesson context */}
-            {lessonId && messages.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("Update this slide with more interactive elements")}
-                >
-                  <span>Improve this slide</span>
-                </button>
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("Help me understand this code: ")}
-                >
-                  <span>Explain this code</span>
-                </button>
-                <button 
-                  className="flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary font-medium py-2 px-4 rounded-md text-sm transition-colors"
-                  onClick={() => setMessage("Give me a hint for this challenge")}
-                >
-                  <span>Get a hint</span>
-                </button>
+          <div className="pt-1 px-3 pb-3">
+            {((!lessonId || messages.length === 0) || (lessonId && messages.length > 0)) && (
+              <div className="mb-2 py-1 bg-gray-50 rounded-md">
+                {(!lessonId || messages.length === 0) && (
+                  <div className="flex flex-wrap px-1">
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("Create a new lesson about")}
+                    >
+                      Create a new lesson
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("Explain the concept of")}
+                    >
+                      Explain a concept
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("How can I use this platform to")}
+                    >
+                      How to use this platform
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("Suggest a coding challenge for")}
+                    >
+                      Get a coding challenge
+                    </button>
+                  </div>
+                )}
+                
+                {/* Action buttons for when in a lesson context */}
+                {lessonId && messages.length > 0 && (
+                  <div className="flex flex-wrap px-1">
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("Update this slide with more interactive elements")}
+                    >
+                      Improve this slide
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("Help me understand this code: ")}
+                    >
+                      Explain this code
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => setMessage("Give me a hint for this challenge")}
+                    >
+                      Get a hint
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             
