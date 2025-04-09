@@ -118,6 +118,8 @@ I'll create an interactive lesson about **${topic}** for you!
 4. Practical Project Building 🚀 - Progressive learning
 
 Select a style to continue!
+
+__SUGGESTION__:STYLE_SELECT:${topic}
 `;
       }
       // Handle style selection for a lesson
