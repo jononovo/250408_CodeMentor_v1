@@ -471,27 +471,55 @@ When the user asks for changes to the lesson or requests new content, use these 
   }
 
   private generateIntroContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // engaging intro content
-    return `# Introduction to ${topic}\n\n${this.getDefinitionForTopic(topic)}`;
+    // Use HTML format by default
+    return `<div class="lesson-intro">
+    <h1>Introduction to ${topic}</h1>
+    <p>${this.getDefinitionForTopic(topic)}</p>
+    </div>`;
   }
 
   private generateConceptsContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // detailed concept explanations
-    return `# Core Concepts of ${topic}\n\n${this.getUsageForTopic(topic)}\n\n## Best Practices\n\n${this.getBestPracticesForTopic(topic)}\n\n\`\`\`${language.toLowerCase()}\n${this.getExampleCodeForTopic(topic, language)}\n\`\`\``;
+    // Use HTML format by default
+    return `<div class="lesson-concepts">
+    <h1>Core Concepts of ${topic}</h1>
+    <p>${this.getUsageForTopic(topic)}</p>
+    
+    <h2>Best Practices</h2>
+    <p>${this.getBestPracticesForTopic(topic)}</p>
+    
+    <div class="code-example">
+      <pre><code class="${language.toLowerCase()}">${this.getExampleCodeForTopic(topic, language)}</code></pre>
+    </div>
+    </div>`;
   }
 
   private generateChallengeContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // challenging but accessible coding exercises
-    return `# Practice ${topic}\n\n${this.getChallengeDescriptionForTopic(topic, language)}\n\n## Hint\n\n${this.getHintForTopic(topic, language)}`;
+    // Use HTML format by default
+    return `<div class="lesson-challenge">
+    <h1>Practice ${topic}</h1>
+    <p>${this.getChallengeDescriptionForTopic(topic, language)}</p>
+    
+    <div class="hint-box">
+      <h2>Hint</h2>
+      <p>${this.getHintForTopic(topic, language)}</p>
+    </div>
+    </div>`;
   }
 
   private generateQuizContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // quiz questions that reinforce learning
-    return `# Test Your Knowledge\n\n## Which of the following is true about ${topic}?\n\n- A. ${this.getQuizAnswerForTopic(topic, "A")}\n- B. ${this.getQuizAnswerForTopic(topic, "B")}\n- C. ${this.getQuizAnswerForTopic(topic, "C")}\n- D. ${this.getQuizAnswerForTopic(topic, "D")}`;
+    // Use HTML format by default
+    return `<div class="lesson-quiz">
+    <h1>Test Your Knowledge</h1>
+    <div class="quiz-question">
+      <h2>Which of the following is true about ${topic}?</h2>
+      <ul class="quiz-options">
+        <li>A. ${this.getQuizAnswerForTopic(topic, "A")}</li>
+        <li>B. ${this.getQuizAnswerForTopic(topic, "B")}</li>
+        <li>C. ${this.getQuizAnswerForTopic(topic, "C")}</li>
+        <li>D. ${this.getQuizAnswerForTopic(topic, "D")}</li>
+      </ul>
+    </div>
+    </div>`;
   }
 
   private getDefinitionForTopic(topic: string): string {
