@@ -1922,7 +1922,12 @@ __SUGGESTION__:You decide!
         });
       `
     };
-  }f (option === "B") {
+  }
+  
+  private getQuizAnswerForTopic(topic: string, option: string): string {
+    if (option === "A") {
+      return `An accurate statement about ${topic}`;
+    } else if (option === "B") {
       return `A common misconception about ${topic}`;
     } else if (option === "C") {
       return `Another accurate statement about ${topic}`;

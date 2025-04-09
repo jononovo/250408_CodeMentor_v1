@@ -189,7 +189,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         </Button>
       ) : (
         <div className="bg-white rounded-lg shadow-lg w-[400px] max-h-[600px] flex flex-col overflow-hidden">
-          <div className="bg-primary/80 text-white p-3 flex items-center justify-between">
+          <div className="bg-primary/40 text-white p-3 flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2">
                 <span className="text-primary text-xl">🐯</span>
