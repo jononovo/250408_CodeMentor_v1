@@ -30,479 +30,663 @@ interface GeneratedLesson {
 }
 
 class AIService {
-  // Set to track processed message IDs to prevent duplicate notifications
+  /**
+   * Keep track of processed messages to avoid duplicates
+   */
   private processedMessages: Set<string> = new Set();
 
+  /**
+   * Generate a complete lesson with slides
+   */
   async generateLesson(
     topic: string,
+    userId: number,
     difficulty: string = 'beginner',
-    format: string = 'html',
-    style: string = '',
-    description?: string
-  ) {
+    style?: string
+  ): Promise<number> {
     try {
-      // Generate lesson content using OpenAI
-      const generatedContent = await generateLesson(topic, difficulty, format, description, style) as GeneratedLesson;
+      // Generate the initial lesson content
+      const lesson = await generateLesson(topic, difficulty);
       
-      // Generate CSS for the chosen style
-      const { cssContent, jsContent } = this.generateStyleTemplateForLesson(style, topic);
+      let title = lesson.title;
+      let description = lesson.description;
+      let language = lesson.language || this.detectLanguageFromTopic(topic);
+      let estimatedTime = lesson.estimatedTime || '30-45 minutes';
+      let format = 'html'; // Default to HTML format
+
+      // Determine the style template to use
+      const styleToUse = style || this.extractStyleFromMessage(topic);
       
-      // Create the lesson in storage
-      const lesson = await storage.createLesson({
-        title: generatedContent.title,
-        description: generatedContent.description,
+      // Generate CSS and JS content based on style
+      const { cssContent, jsContent } = this.generateStyleTemplateForLesson(styleToUse, topic);
+
+      // Create the lesson
+      const newLesson = await storage.createLesson({
+        title: title,
+        description: description,
         difficulty: difficulty as 'beginner' | 'intermediate' | 'advanced',
-        language: generatedContent.language,
-        estimatedTime: generatedContent.estimatedTime,
+        language: language,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        userId: userId,
         format: format,
-        styleName: style || 'brown-markdown', // Default to Brown Markdown if no style is specified
-        cssContent,
-        jsContent
+        estimatedTime: estimatedTime,
+        styleName: styleToUse,
+        cssContent: cssContent,
+        jsContent: jsContent
       });
-      
-      // Create slides for the lesson
-      const slidePromises = generatedContent.slides.map((slide, index) => {
+
+      const lessonId = newLesson.id;
+
+      // Create the individual slides
+      const slides = lesson.slides || this.generateSlidesForTopic(topic, language, difficulty);
+      const slidesPromises = slides.map(async (slide, index) => {
         return storage.createSlide({
-          lessonId: lesson.id,
+          lessonId: lessonId,
           title: slide.title,
           content: slide.content,
           type: slide.type,
           order: index,
-          tags: slide.tags,
+          tags: slide.tags || [],
           initialCode: slide.initialCode,
           filename: slide.filename,
-          tests: slide.tests
+          tests: slide.tests as any,
         });
       });
-      
-      await Promise.all(slidePromises);
-      
-      // Return the created lesson with its ID
-      return {
-        ...lesson,
-        slides: await storage.getSlidesByLessonId(lesson.id)
-      };
-    } catch (error: any) {
+
+      await Promise.all(slidesPromises);
+
+      // Create a chat for the lesson
+      await storage.createChat({
+        lessonId: lessonId,
+        title: `Chat about ${title}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: []
+      });
+
+      return lessonId;
+    } catch (error) {
       console.error('Error generating lesson:', error);
-      throw new Error(`Failed to generate lesson: ${error.message}`);
+      throw error;
     }
   }
 
+  /**
+   * Generate a response to a user message
+   */
   async generateResponse(
     message: string,
-    chatId: number,
+    userId: number,
+    chatId?: number,
     lessonId?: number
-  ) {
+  ): Promise<string> {
     try {
-      // Check if this message has already been processed
-      const messageId = `${chatId}-${message}`;
-      if (this.processedMessages.has(messageId)) {
-        return "This message has already been processed.";
-      }
-      
-      // Mark the message as processed
-      this.processedMessages.add(messageId);
-      
-      // Get the chat history
-      const chat = await storage.getChat(chatId);
-      if (!chat) {
-        throw new Error(`Chat with ID ${chatId} not found`);
-      }
-      
-      // Get messages for this chat
-      const messages = await storage.getMessagesByChatId(chatId);
-      
-      // Convert messages to the format expected by OpenAI
-      const chatHistory = messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content
-      }));
-      
-      let response;
-      
       // Check if this is a request to create a new lesson
       if (this.isNewLessonRequest(message)) {
+        // Extract topic from message
         const topic = this.extractTopicFromMessage(message);
         const difficulty = this.extractDifficultyFromMessage(message);
         
-        // Check if this is a response to a lesson creation proposal
-        if (/yes, that looks good/i.test(message)) {
-          // This is a confirmation of a previous lesson proposal
-          const previousMessages = await storage.getMessagesByChatId(chatId);
-          let lastMessage = previousMessages.filter(m => m.role === 'assistant').pop();
-          
-          if (lastMessage && lastMessage.content.includes('choose a style for your lesson')) {
-            // The user has selected a style choice in a previous interaction
-            // Extract the style from the user message
-            const style = this.extractStyleFromMessage(message) || "brown-markdown";
-            
-            try {
-              // Get the topic and difficulty from the previous context
-              let contextTopic = topic;
-              let contextDifficulty = difficulty;
-              
-              // Loop through previous messages to find the proposed lesson details
-              for (const msg of previousMessages.reverse()) {
-                if (msg.role === 'assistant' && msg.content.includes('Lesson:')) {
-                  const proposalMatch = msg.content.match(/Topic:\s*(.*?)\s*\n/i);
-                  const difficultyMatch = msg.content.match(/Level:\s*(.*?)\s*(\n|$)/i);
-                  
-                  if (proposalMatch && proposalMatch[1]) {
-                    contextTopic = proposalMatch[1].trim();
-                  }
-                  
-                  if (difficultyMatch && difficultyMatch[1]) {
-                    const diffText = difficultyMatch[1].toLowerCase().trim();
-                    if (diffText.includes('beginner')) {
-                      contextDifficulty = 'beginner';
-                    } else if (diffText.includes('intermediate')) {
-                      contextDifficulty = 'intermediate';
-                    } else if (diffText.includes('advanced')) {
-                      contextDifficulty = 'advanced';
-                    }
-                  }
-                  
-                  break;
-                }
-              }
-              
-              // Generate a new lesson in HTML format with the selected style
-              const lesson = await this.generateLesson(contextTopic, contextDifficulty, 'html', style);
-              
-              // Format response with lesson details and ID for redirect
-              // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
-              response = `I've created your lesson about ${contextTopic} using the ${this.getStyleDisplayName(style)} style. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
-            } catch (error: any) {
-              console.error('Error creating new lesson:', error);
-              response = `I'm sorry, I couldn't create the lesson. Error: ${error.message}`;
-            }
-          } else {
-            // This is a confirmation of a lesson proposal, now ask for style preference
-            response = this.generateStyleSelectionPrompt(topic, difficulty);
-          }
-        } else if (/i'd like to change it to/i.test(message)) {
-          // The user wants to modify the lesson proposal
-          // For simplicity, just present a new lesson proposal
-          const updatedTopic = this.extractTopicFromMessage(message) || topic;
-          const updatedDifficulty = this.extractDifficultyFromMessage(message) || difficulty;
-          
-          response = this.generateLessonProposal(updatedTopic, updatedDifficulty);
-        } else if (/brown[-\s]?markdown|neon[-\s]?racer|interaction[-\s]?galore|practical[-\s]?project/i.test(message) || /you decide/i.test(message)) {
-          // The user is selecting a style from the options
-          let style = this.extractStyleFromMessage(message);
-          
-          // If "you decide" was selected, randomly choose a style
-          if (/you decide/i.test(message)) {
-            const styles = ["brown-markdown", "neon-racer", "interaction-galore", "practical-project"];
-            style = styles[Math.floor(Math.random() * styles.length)];
-          }
-          
-          try {
-            // Extract the topic and difficulty from previous context
-            let contextTopic = topic;
-            let contextDifficulty = difficulty;
-            
-            // Get previous messages to find context
-            const previousMessages = await storage.getMessagesByChatId(chatId);
-            
-            // Loop through previous messages to find the proposed lesson details
-            for (const msg of previousMessages.reverse()) {
-              if (msg.role === 'assistant' && msg.content.includes('Lesson:')) {
-                const proposalMatch = msg.content.match(/Topic:\s*(.*?)\s*\n/i);
-                const difficultyMatch = msg.content.match(/Level:\s*(.*?)\s*(\n|$)/i);
-                
-                if (proposalMatch && proposalMatch[1]) {
-                  contextTopic = proposalMatch[1].trim();
-                }
-                
-                if (difficultyMatch && difficultyMatch[1]) {
-                  const diffText = difficultyMatch[1].toLowerCase().trim();
-                  if (diffText.includes('beginner')) {
-                    contextDifficulty = 'beginner';
-                  } else if (diffText.includes('intermediate')) {
-                    contextDifficulty = 'intermediate';
-                  } else if (diffText.includes('advanced')) {
-                    contextDifficulty = 'advanced';
-                  }
-                }
-                
-                break;
-              }
-            }
-            
-            // Generate a new lesson in HTML format with the selected style
-            const lesson = await this.generateLesson(contextTopic, contextDifficulty, 'html', style);
-            
-            // Format response with lesson details and ID for redirect
-            // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
-            response = `I've created your lesson about ${contextTopic} using the ${this.getStyleDisplayName(style)} style. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
-          } catch (error: any) {
-            console.error('Error creating new lesson:', error);
-            response = `I'm sorry, I couldn't create the lesson. Error: ${error.message}`;
-          }
-        } else {
-          // This is a new lesson request, present a proposal
-          response = this.generateLessonProposal(topic, difficulty);
+        // Generate a lesson proposal with style options
+        return this.generateLessonProposal(topic, difficulty);
+      }
+      
+      // If associated with a lesson, check if it's a slide edit request
+      if (lessonId && this.isSlideEditRequest(message)) {
+        return this.handleSlideEditRequest(message, lessonId);
+      }
+      
+      // Handle style selection message 
+      if (message.includes('style') && (message.includes('select') || message.includes('choose'))) {
+        const style = this.extractStyleFromMessage(message);
+        const topic = this.extractTopicFromMessage(message);
+        
+        if (style) {
+          return `Great choice! I'll use the "${this.getStyleDisplayName(style)}" style for this lesson. Let me create that for you now...`;
         }
       }
-      // Check if this is a request to edit a slide
-      else if (lessonId && this.isSlideEditRequest(message)) {
-        response = await this.handleSlideEditRequest(message, lessonId);
-      }
-      // Use tools for other responses when in a lesson context
-      else if (lessonId) {
-        response = await generateToolResponse(
-          [...chatHistory, { role: 'user', content: message }],
-          tools,
-          toolsMap
-        );
-      }
-      // Default chat response
-      else {
-        response = await generateChatResponse(message, chatHistory, lessonId);
+      
+      // Get the chat history if this is part of a chat
+      const messages = [];
+      
+      if (chatId) {
+        try {
+          const chatMessages = await storage.getMessagesByChatId(chatId);
+          // Add chat history but limit to last 10 messages to avoid token limits
+          messages.push(
+            ...chatMessages
+              .slice(-10)
+              .map(msg => ({ role: msg.role, content: msg.content }))
+          );
+        } catch (error) {
+          console.error("Error fetching chat messages:", error);
+        }
       }
       
-      // Store the message from the user
-      await storage.createMessage({
-        chatId,
-        role: 'user',
-        content: message
-      });
+      // Add the current message
+      messages.push({ role: 'user', content: message });
       
-      // Store the response from the assistant
-      await storage.createMessage({
-        chatId,
-        role: 'assistant',
-        content: response
-      });
+      // Get lesson information if available
+      let systemContext = "";
+      if (lessonId) {
+        try {
+          const lesson = await storage.getLesson(lessonId);
+          if (lesson) {
+            systemContext = `This chat is about the lesson titled "${lesson.title}" which is a ${lesson.difficulty} difficulty lesson about ${lesson.language}. The user may ask questions about this lesson content.`;
+            
+            // Add slides information
+            const slides = await storage.getSlidesByLessonId(lessonId);
+            if (slides.length > 0) {
+              systemContext += ` The lesson has ${slides.length} slides including: ${slides.map(s => `"${s.title}"`).join(", ")}.`;
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching lesson:", error);
+        }
+      }
+      
+      let response;
+      
+      // Keep track of the request fingerprint to avoid duplicates
+      const requestFingerprint = `${chatId}-${message}`;
+      if (this.processedMessages.has(requestFingerprint)) {
+        console.log("Duplicate message detected, skipping AI processing");
+        return "I've already processed this message. Please try a different question!";
+      }
+      
+      this.processedMessages.add(requestFingerprint);
+      
+      // Add personality traits to make the chat more engaging
+      const personalityContext = `
+        You are Mumu the Coding Tiger 🐯, a cheerful and enthusiastic coding teacher who specializes in making coding fun for beginners.
+        Your communication style:
+        - Use emojis frequently to express emotions 🎉
+        - Speak with enthusiasm and excitement
+        - Be encouraging and supportive 💪
+        - Use simple, clear explanations
+        - Occasionally use playful tiger-related metaphors
+        - Keep explanations concise (2-3 paragraphs max)
+        - Use markdown for formatting code and explanations
+        
+        Your name is Mumu and you should refer to yourself as Mumu. When introducing yourself, mention you're a coding tiger.
+      `;
+      
+      // Generate the response
+      if (lessonId) {
+        // For lesson-specific chats, use more context
+        const systemMessage = systemContext + "\n" + personalityContext;
+        response = await generateChatResponse(messages, systemMessage);
+      } else {
+        // For general chats, use the default personality
+        response = await generateChatResponse(messages, personalityContext);
+      }
+      
+      // Save the new message to the database if this is part of a chat
+      if (chatId) {
+        try {
+          await storage.createMessage({
+            chatId: chatId,
+            role: 'user',
+            content: message,
+            timestamp: Date.now()
+          });
+          
+          await storage.createMessage({
+            chatId: chatId,
+            role: 'assistant',
+            content: response,
+            timestamp: Date.now()
+          });
+          
+          const chat = await storage.getChat(chatId);
+          if (chat) {
+            await storage.updateChat(chatId, {
+              updatedAt: Date.now()
+            });
+          }
+        } catch (error) {
+          console.error("Error saving messages:", error);
+        }
+      }
       
       return response;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating response:', error);
-      return `I'm having trouble responding right now. Error: ${error.message}`;
+      return "I'm sorry, I had trouble generating a response. Please try again.";
     }
   }
 
+  /**
+   * Detect if a message is requesting a slide edit
+   */
   private isSlideEditRequest(message: string): boolean {
-    const editPatterns = [
-      /edit slide/i,
-      /update slide/i,
-      /change slide/i,
-      /modify slide/i,
-      /improve slide/i
+    // Look for keywords that would indicate a slide edit request
+    const editKeywords = [
+      'edit slide', 
+      'change slide',
+      'update slide',
+      'modify slide',
+      'revise slide',
     ];
-    return editPatterns.some(pattern => pattern.test(message));
+    
+    return editKeywords.some(keyword => message.toLowerCase().includes(keyword));
   }
 
+  /**
+   * Detect if a message is requesting a new lesson
+   */
   private isNewLessonRequest(message: string): boolean {
-    const createPatterns = [
-      /create (a|new) lesson/i,
-      /make (a|new) lesson/i,
-      /generate (a|new) lesson/i,
-      /teach me (about|how to)/i,
-      /create (a|an) tutorial/i,
-      /build (a|an) lesson/i,
-      /i want to create a lesson/i,
-      /i'd like a lesson/i,
-      /can you make a lesson/i
+    // Keywords that would indicate a request for a new lesson
+    const newLessonKeywords = [
+      'create a lesson',
+      'make a lesson',
+      'generate a lesson',
+      'new lesson',
+      'teach me',
+      'lesson about',
+      'explain',
+      'tutorial',
+      'learn'
     ];
-    return createPatterns.some(pattern => pattern.test(message));
+    
+    return newLessonKeywords.some(keyword => message.toLowerCase().includes(keyword));
   }
 
+  /**
+   * Extract a topic from a user message
+   */
   private extractTopicFromMessage(message: string): string {
-    const topicPatterns = [
-      /about\s+([^,\.]+)/i,
-      /on\s+([^,\.]+)/i,
-      /for\s+([^,\.]+)/i,
-      /covering\s+([^,\.]+)/i,
-      /teach me\s+([^,\.]+)/i
-    ];
+    // Look for phrases like "about X" or "on X"
+    const aboutMatch = message.match(/about\s+([^.?!,]+)/i);
+    if (aboutMatch && aboutMatch[1]) return aboutMatch[1].trim();
     
-    for (const pattern of topicPatterns) {
-      const match = message.match(pattern);
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-    }
+    const onMatch = message.match(/on\s+([^.?!,]+)/i);
+    if (onMatch && onMatch[1]) return onMatch[1].trim();
     
-    // Default to a generic topic if no specific one is found
-    return "programming basics";
+    // Look for phrases like "teach me X" or "learn X"
+    const teachMatch = message.match(/teach\s+(?:me|us)\s+([^.?!,]+)/i);
+    if (teachMatch && teachMatch[1]) return teachMatch[1].trim();
+    
+    const learnMatch = message.match(/learn\s+([^.?!,]+)/i);
+    if (learnMatch && learnMatch[1]) return learnMatch[1].trim();
+    
+    // Default to a generic topic if no matches found
+    return "programming fundamentals";
   }
 
+  /**
+   * Extract difficulty from a user message
+   */
   private extractDifficultyFromMessage(message: string): string {
-    if (/beginner/i.test(message) || /basic/i.test(message) || /simple/i.test(message)) {
-      return "beginner";
-    } else if (/intermediate/i.test(message) || /medium/i.test(message)) {
-      return "intermediate";
-    } else if (/advanced/i.test(message) || /expert/i.test(message) || /difficult/i.test(message)) {
-      return "advanced";
+    const message_lower = message.toLowerCase();
+    
+    if (message_lower.includes('beginner') || message_lower.includes('easy') || message_lower.includes('basic')) {
+      return 'beginner';
+    } else if (message_lower.includes('intermediate') || message_lower.includes('moderate')) {
+      return 'intermediate';
+    } else if (message_lower.includes('advanced') || message_lower.includes('expert') || message_lower.includes('hard')) {
+      return 'advanced';
     }
     
     // Default to beginner if no difficulty specified
-    return "beginner";
+    return 'beginner';
   }
 
+  /**
+   * Handle requests to edit a slide
+   */
   private async handleSlideEditRequest(message: string, lessonId: number): Promise<string> {
     try {
-      // Get the slides for this lesson
+      // Get the slides for the lesson
       const slides = await storage.getSlidesByLessonId(lessonId);
-      if (!slides || slides.length === 0) {
-        return "I couldn't find any slides for this lesson.";
+      
+      if (slides.length === 0) {
+        return "I couldn't find any slides for this lesson to edit.";
       }
       
-      // For simplicity, assume the edit request is for the current slide (first slide)
-      // In a real application, you would parse the message to determine which slide to edit
-      const slideToEdit = slides[0];
+      // Try to determine which slide to edit based on the message
+      const slideNumberMatch = message.match(/slide\s+(\d+)/i);
+      let slideToEdit;
       
-      // Generate updates based on the message
-      const updatedTitle = this.generateUpdatedTitleFromMessage(message, slideToEdit.title);
-      const updatedContent = this.generateUpdatedContentFromMessage(message, slideToEdit.content);
+      if (slideNumberMatch && slideNumberMatch[1]) {
+        const slideIndex = parseInt(slideNumberMatch[1]) - 1; // Convert to 0-indexed
+        slideToEdit = slides[slideIndex];
+      } else {
+        // Look for title matches
+        const slideTitleRegex = /(?:edit|change|update|modify|revise)\s+(?:the\s+)?(?:slide|content)\s+(?:titled|called|named)?\s+["']?([^"'.?!,]+)["']?/i;
+        const titleMatch = message.match(slideTitleRegex);
+        
+        if (titleMatch && titleMatch[1]) {
+          const titleToFind = titleMatch[1].trim();
+          slideToEdit = slides.find(s => 
+            s.title.toLowerCase().includes(titleToFind.toLowerCase())
+          );
+        } else {
+          // Default to the first slide if no specific slide identified
+          slideToEdit = slides[0];
+        }
+      }
       
-      // Update the slide
-      await storage.updateSlide(slideToEdit.id, {
-        title: updatedTitle,
-        content: updatedContent
-      });
+      if (!slideToEdit) {
+        return "I couldn't determine which slide you want to edit. Please specify the slide number or title.";
+      }
       
-      return `I've updated the slide "${updatedTitle}" based on your request.`;
-    } catch (error: any) {
-      console.error('Error handling slide edit request:', error);
-      return `I couldn't update the slide. Error: ${error.message}`;
+      // Determine what to update based on the message
+      if (message.toLowerCase().includes('content')) {
+        // Update the slide content
+        const newContent = this.generateUpdatedContentFromMessage(message, slideToEdit.content);
+        await storage.updateSlide(slideToEdit.id, { content: newContent });
+        return `I've updated the content of the slide "${slideToEdit.title}".`;
+      } else if (message.toLowerCase().includes('title')) {
+        // Update the slide title
+        const newTitle = this.generateUpdatedTitleFromMessage(message, slideToEdit.title);
+        await storage.updateSlide(slideToEdit.id, { title: newTitle });
+        return `I've updated the title of the slide to "${newTitle}".`;
+      } else {
+        // Default to updating content
+        const newContent = this.generateUpdatedContentFromMessage(message, slideToEdit.content);
+        await storage.updateSlide(slideToEdit.id, { content: newContent });
+        return `I've updated the slide "${slideToEdit.title}" with your requested changes.`;
+      }
+    } catch (error) {
+      console.error("Error handling slide edit:", error);
+      return "I encountered an error while trying to edit the slide. Please try again.";
     }
   }
 
+  /**
+   * Generate updated content based on user's edit request
+   */
   private generateUpdatedContentFromMessage(message: string, currentContent: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // updated content based on the message and current content
-    return currentContent + "\n\n*Updated based on user request*";
+    // This would typically call the OpenAI API to generate better content
+    // For now, just append the user's request to the current content
+    return currentContent + "\n\n" + "Updated based on user request: " + message;
   }
 
+  /**
+   * Generate updated title based on user's edit request
+   */
   private generateUpdatedTitleFromMessage(message: string, currentTitle: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // an updated title based on the message and current title
-    return currentTitle;
+    // Extract the new title from the message
+    const newTitleMatch = message.match(/new title ["']?([^"'.?!]+)["']?/i);
+    if (newTitleMatch && newTitleMatch[1]) {
+      return newTitleMatch[1].trim();
+    }
+    
+    // If no explicit title found, modify the current one slightly
+    return "Updated: " + currentTitle;
   }
 
+  /**
+   * Determine the appropriate slide type based on message content
+   */
   private determineSlideType(message: string): 'info' | 'challenge' | 'quiz' {
-    if (/challenge/i.test(message) || /exercise/i.test(message) || /practice/i.test(message)) {
-      return 'challenge';
-    } else if (/quiz/i.test(message) || /question/i.test(message) || /test/i.test(message)) {
+    const messageLower = message.toLowerCase();
+    
+    if (messageLower.includes('quiz') || messageLower.includes('test') || messageLower.includes('question')) {
       return 'quiz';
+    } else if (messageLower.includes('challenge') || messageLower.includes('exercise') || messageLower.includes('practice')) {
+      return 'challenge';
+    } else {
+      return 'info';
     }
-    return 'info';
   }
 
+  /**
+   * Generate a slide title from a message
+   */
   private generateSlideTitleFromMessage(message: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // a title based on the message
-    return "New Slide";
-  }
-
-  private generateSlideContentFromMessage(message: string, type: 'info' | 'challenge' | 'quiz'): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // content based on the message and slide type
-    return "This is the content of the new slide.";
-  }
-
-  private generateDetailedContent(topic: string, type: 'info' | 'challenge' | 'quiz'): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // detailed content based on the topic and slide type
-    return "Detailed content would be generated here.";
-  }
-
-  private determineTagsFromMessage(message: string): string[] {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // appropriate tags based on the message
-    return ["sample", "tag"];
-  }
-
-  private generateInitialCodeFromMessage(message: string): string | undefined {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // initial code for challenge slides
-    if (/challenge/i.test(message) || /exercise/i.test(message)) {
-      return "// Initial code for the challenge";
+    // Extract key phrases that could be a good title
+    const titlePhrases = [
+      /about\s+([^.?!,]+)/i,
+      /titled\s+["']?([^"'.?!]+)["']?/i,
+      /called\s+["']?([^"'.?!]+)["']?/i
+    ];
+    
+    for (const phrase of titlePhrases) {
+      const match = message.match(phrase);
+      if (match && match[1]) {
+        return this.capitalizeFirstLetter(match[1].trim());
+      }
     }
-    return undefined;
+    
+    // Default title based on slide type
+    const type = this.determineSlideType(message);
+    return this.capitalizeFirstLetter(`${type} about ${this.extractTopicFromMessage(message)}`);
   }
 
+  /**
+   * Generate slide content from a message
+   */
+  private generateSlideContentFromMessage(message: string, type: 'info' | 'challenge' | 'quiz'): string {
+    // Default sample content based on slide type
+    return this.generateDetailedContent(this.extractTopicFromMessage(message), type);
+  }
+
+  /**
+   * Generate detailed content for a slide based on topic and type
+   */
+  private generateDetailedContent(topic: string, type: 'info' | 'challenge' | 'quiz'): string {
+    switch (type) {
+      case 'info':
+        return `
+          <h1>${this.capitalizeFirstLetter(topic)}</h1>
+          <p>${this.getDefinitionForTopic(topic)}</p>
+          <h2>How it works</h2>
+          <p>${this.getUsageForTopic(topic)}</p>
+          <h2>Best Practices</h2>
+          <p>${this.getBestPracticesForTopic(topic)}</p>
+        `;
+      case 'challenge':
+        return `
+          <h1>Challenge: ${this.capitalizeFirstLetter(topic)}</h1>
+          <p>${this.getChallengeDescriptionForTopic(topic, this.detectLanguageFromTopic(topic))}</p>
+          <div class="hint-box">
+            <h3>Hint</h3>
+            <p>${this.getHintForTopic(topic, this.detectLanguageFromTopic(topic))}</p>
+          </div>
+        `;
+      case 'quiz':
+        return `
+          <h1>Quiz: Test Your Knowledge</h1>
+          <p>Select the correct answer about ${topic}:</p>
+          <div class="quiz-container">
+            <div class="quiz-option" data-option="A">
+              <strong>A:</strong> ${this.getQuizAnswerForTopic(topic, 'A')}
+            </div>
+            <div class="quiz-option" data-option="B">
+              <strong>B:</strong> ${this.getQuizAnswerForTopic(topic, 'B')}
+            </div>
+            <div class="quiz-option" data-option="C">
+              <strong>C:</strong> ${this.getQuizAnswerForTopic(topic, 'C')}
+            </div>
+            <div id="feedback-correct">
+              ✅ Correct! Well done!
+            </div>
+            <div id="feedback-incorrect">
+              ❌ Not quite right. Try again!
+            </div>
+          </div>
+          
+          <script>
+            window.selectOption = function(option) {
+              const options = document.querySelectorAll('.quiz-option');
+              options.forEach(opt => opt.classList.remove('correct', 'incorrect'));
+              
+              const selectedOption = document.querySelector(\`.quiz-option[data-option="\${option}"]\`);
+              const correctFeedback = document.getElementById('feedback-correct');
+              const incorrectFeedback = document.getElementById('feedback-incorrect');
+              
+              correctFeedback.style.display = 'none';
+              incorrectFeedback.style.display = 'none';
+              
+              // For demonstration, let's say option "B" is always correct
+              if (option === 'B') {
+                selectedOption.classList.add('correct');
+                correctFeedback.style.display = 'block';
+              } else {
+                selectedOption.classList.add('incorrect');
+                incorrectFeedback.style.display = 'block';
+              }
+            }
+          </script>
+        `;
+      default:
+        return `<h1>${this.capitalizeFirstLetter(topic)}</h1><p>Content about ${topic}</p>`;
+    }
+  }
+
+  /**
+   * Determine appropriate tags for a slide based on user message
+   */
+  private determineTagsFromMessage(message: string): string[] {
+    const topic = this.extractTopicFromMessage(message);
+    const tags = [topic];
+    
+    const language = this.detectLanguageFromTopic(topic);
+    if (language) tags.push(language);
+    
+    const difficulty = this.extractDifficultyFromMessage(message);
+    tags.push(difficulty);
+    
+    const type = this.determineSlideType(message);
+    tags.push(type);
+    
+    // Add more contextual tags based on message content
+    const keywordMap = {
+      'example': ['example', 'demonstration', 'sample'],
+      'theory': ['theory', 'concept', 'principle'],
+      'code': ['code', 'programming', 'syntax'],
+      'practice': ['practice', 'exercise', 'drill'],
+      'test': ['test', 'quiz', 'assessment']
+    };
+    
+    for (const [tag, keywords] of Object.entries(keywordMap)) {
+      if (keywords.some(keyword => message.toLowerCase().includes(keyword))) {
+        tags.push(tag);
+      }
+    }
+    
+    return tags;
+  }
+
+  /**
+   * Generate initial code for challenges based on message
+   */
+  private generateInitialCodeFromMessage(message: string): string | undefined {
+    const topic = this.extractTopicFromMessage(message);
+    const language = this.detectLanguageFromTopic(topic);
+    
+    // Only generate code for challenge slides
+    if (this.determineSlideType(message) !== 'challenge') {
+      return undefined;
+    }
+    
+    return this.getExampleCodeForTopic(topic, language);
+  }
+
+  /**
+   * Generate tests for challenges based on message
+   */
   private generateTestsFromMessage(message: string): Array<{id: string; name: string; description: string; validation: string; type: 'regex' | 'js'}> | undefined {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // tests for challenge slides
-    if (/challenge/i.test(message) || /exercise/i.test(message)) {
+    const topic = this.extractTopicFromMessage(message);
+    const language = this.detectLanguageFromTopic(topic);
+    
+    // Only generate tests for challenge slides
+    if (this.determineSlideType(message) !== 'challenge') {
+      return undefined;
+    }
+    
+    if (language === 'javascript' || language === 'typescript') {
       return [
         {
           id: uuidv4(),
-          name: "Test 1",
-          description: "Basic test",
-          validation: "function exists",
-          type: 'regex'
+          name: "Variable declaration",
+          description: "Checks if the necessary variables are declared",
+          validation: "# Check if variables exist",
+          type: "regex"
+        },
+        {
+          id: uuidv4(),
+          name: "Function implementation",
+          description: "Checks if the function performs the basic task",
+          validation: "# This would be real validation logic in a production system",
+          type: "js"
         }
       ];
     }
-    return undefined;
+    
+    return [
+      {
+        id: uuidv4(),
+        name: "Basic test",
+        description: "Checks if the code meets basic requirements",
+        validation: "// This would be real validation logic in a production system",
+        type: "js"
+      }
+    ];
   }
 
   /**
    * Generate a styled lesson proposal with details about the lesson
    */
   private generateLessonProposal(topic: string, difficulty: string): string {
-    const language = this.detectLanguageFromTopic(topic);
     const title = this.generateTitle(topic, difficulty);
     
-    // Generate an estimated time based on difficulty
-    let estimatedTime = '15-20 minutes';
-    if (difficulty === 'intermediate') {
-      estimatedTime = '25-35 minutes';
-    } else if (difficulty === 'advanced') {
-      estimatedTime = '40-60 minutes';
-    }
-    
-    // Format the response with styled markdown
     return `
-I'd be happy to create a lesson for you! Here's what I'm thinking:
+# 🐯 Lesson Proposal: ${title}
 
-### 📋 Lesson Proposal:
+I'd be happy to create a lesson about **${topic}** for you! Here's what I'm thinking:
 
-**Lesson:** ${title}
-**Topic:** ${topic}
-**Description:** An interactive ${difficulty} level lesson about ${topic} using ${language}. You'll learn key concepts, see practical examples, and complete coding challenges.
-**Duration:** ${estimatedTime}
-**Level:** ${this.capitalizeFirstLetter(difficulty)}
-**Language:** ${language}
+## 📚 Lesson Details:
+- **Topic:** ${topic}
+- **Difficulty:** ${difficulty}
+- **Format:** HTML with interactive elements
+- **Estimated Time:** 30-45 minutes
 
-**What you'll learn:**
+## 🧩 What You'll Learn:
 - Core concepts of ${topic}
-- How to use ${topic} in real-world scenarios
+- Practical implementation techniques
 - Best practices and common pitfalls
-- Hands-on coding experience
+- Hands-on coding challenges
 
-Does this look good to you?
+## 📝 Proposed Slides:
+1. Introduction to ${topic}
+2. Core Concepts Explained
+3. Example Code & Demonstration
+4. Interactive Challenge
+5. Common Patterns & Use Cases
+6. Quiz: Test Your Knowledge
 
-__SUGGESTION__:Yes, that looks good.
-__SUGGESTION__:I'd like to change it to
-`;
+${this.generateStyleSelectionPrompt(topic, difficulty)}
+
+Does this sound good? Let me know if you'd like to proceed or if you want to make any changes to the plan!
+    `;
   }
-  
+
   /**
    * Generate a prompt for selecting lesson style with visual options
    */
   private generateStyleSelectionPrompt(topic: string, difficulty: string): string {
     return `
-Got it! Now finally, what style of lesson would you prefer today?
+## 🎨 Choose a Style:
+Please select a visual style for your lesson:
 
-__SUGGESTION__:Brown Markdown 🏖️ - A relaxed, earthy style with tan/beige/brown colors.
-__SUGGESTION__:Neon Racer 🏎️ - A vibrant, high-energy style with neon colors and animations.
-__SUGGESTION__:Interaction Galore 💃🏽 - A style focused on interactivity with lots of clickable elements.
-__SUGGESTION__:Practical Project Building 🚀 - A progressive style that builds concepts step by step.
-__SUGGESTION__:You decide!
-`;
+1. ${this.getStyleDisplayName('brown-markdown')} - A relaxed, earthy style with tan/beige/brown colors
+2. ${this.getStyleDisplayName('neon-racer')} - A vibrant, high-energy style with neon colors and animations
+3. ${this.getStyleDisplayName('interaction-galore')} - A style focused on interactive elements with plenty of clickable components
+4. ${this.getStyleDisplayName('practical-project')} - A style focused on progressive learning with each slide building on the previous
+
+Just reply with which style you prefer!
+    `;
   }
-  
+
   /**
    * Get a display name for style with emoji
    */
   private getStyleDisplayName(style: string): string {
-    switch(style) {
+    switch (style) {
       case 'brown-markdown':
         return 'Brown Markdown 🏖️';
       case 'neon-racer':
@@ -512,153 +696,420 @@ __SUGGESTION__:You decide!
       case 'practical-project':
         return 'Practical Project Building 🚀';
       default:
-        return 'Default Style';
+        return style;
     }
   }
-  
+
+  /**
+   * Extract style selection from user message
+   */
   private extractStyleFromMessage(message: string): string {
-    // Extract the style from the user message
-    if (/brown[-\s]?markdown/i.test(message) || /earthy/i.test(message) || /relaxed/i.test(message)) {
-      return "brown-markdown";
-    } else if (/neon[-\s]?racer/i.test(message) || /vibrant/i.test(message) || /energetic/i.test(message)) {
-      return "neon-racer";
-    } else if (/interaction[-\s]?galore/i.test(message) || /interactive/i.test(message) || /clickable/i.test(message)) {
-      return "interaction-galore";
-    } else if (/practical[-\s]?project/i.test(message) || /project[-\s]?building/i.test(message) || /progressive/i.test(message)) {
-      return "practical-project";
+    const messageLower = message.toLowerCase();
+    
+    if (messageLower.includes('brown') || messageLower.includes('earth') || messageLower.includes('markdown')) {
+      return 'brown-markdown';
+    } else if (messageLower.includes('neon') || messageLower.includes('racer') || messageLower.includes('vibrant')) {
+      return 'neon-racer';
+    } else if (messageLower.includes('interaction') || messageLower.includes('galore') || messageLower.includes('interactive')) {
+      return 'interaction-galore';
+    } else if (messageLower.includes('practical') || messageLower.includes('project') || messageLower.includes('progressive')) {
+      return 'practical-project';
+    } else if (messageLower.includes('style 1') || messageLower.includes('option 1') || messageLower.includes('first')) {
+      return 'brown-markdown';
+    } else if (messageLower.includes('style 2') || messageLower.includes('option 2') || messageLower.includes('second')) {
+      return 'neon-racer';
+    } else if (messageLower.includes('style 3') || messageLower.includes('option 3') || messageLower.includes('third')) {
+      return 'interaction-galore';
+    } else if (messageLower.includes('style 4') || messageLower.includes('option 4') || messageLower.includes('fourth')) {
+      return 'practical-project';
     }
     
-    // Default to Brown Markdown if no style is specified
-    return "brown-markdown";
+    // Default style if none detected
+    return 'practical-project';
   }
-  
+
+  /**
+   * Detect the programming language from a topic
+   */
   private detectLanguageFromTopic(topic: string): string {
-    // This is a placeholder - in a real implementation, you would extract the programming language
-    // from the topic if mentioned
-    if (/javascript/i.test(topic) || /js/i.test(topic)) {
-      return "JavaScript";
-    } else if (/python/i.test(topic)) {
-      return "Python";
-    } else if (/html/i.test(topic)) {
-      return "HTML";
-    } else if (/css/i.test(topic)) {
-      return "CSS";
+    const topicLower = topic.toLowerCase();
+    
+    // Map of keywords to languages
+    const languageKeywords: Record<string, string[]> = {
+      'javascript': ['javascript', 'js', 'node', 'react', 'angular', 'vue', 'dom', 'jquery', 'frontend'],
+      'typescript': ['typescript', 'ts', 'angular', 'type', 'interface'],
+      'python': ['python', 'django', 'flask', 'numpy', 'pandas', 'matplotlib', 'scikit'],
+      'java': ['java', 'spring', 'maven', 'gradle', 'android'],
+      'html': ['html', 'markup', 'dom', 'element', 'tag'],
+      'css': ['css', 'style', 'flexbox', 'grid', 'responsive'],
+      'sql': ['sql', 'database', 'query', 'table', 'join', 'select'],
+      'ruby': ['ruby', 'rails', 'erb', 'gem'],
+      'c#': ['c#', 'csharp', '.net', 'asp.net', 'unity'],
+      'php': ['php', 'laravel', 'symfony', 'wordpress']
+    };
+    
+    // Find the language with the most keyword matches
+    let bestMatch = '';
+    let highestScore = 0;
+    
+    for (const [language, keywords] of Object.entries(languageKeywords)) {
+      const score = keywords.filter(keyword => topicLower.includes(keyword)).length;
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = language;
+      }
     }
-    return "JavaScript"; // Default
+    
+    // If no matches, default based on general topics
+    if (highestScore === 0) {
+      if (topicLower.includes('web') || topicLower.includes('frontend')) {
+        return 'javascript';
+      } else if (topicLower.includes('data') || topicLower.includes('machine learning')) {
+        return 'python';
+      } else if (topicLower.includes('server') || topicLower.includes('backend')) {
+        return 'javascript'; // Assuming Node.js
+      }
+    }
+    
+    return bestMatch || 'javascript';
   }
 
+  /**
+   * Generate a title based on topic and difficulty
+   */
   private generateTitle(topic: string, difficulty: string): string {
-    // This is a placeholder - in a real implementation, you would generate a more
-    // engaging title based on the topic and difficulty
-    return `Learning ${this.capitalizeFirstLetter(topic)} - ${this.capitalizeFirstLetter(difficulty)} Level`;
+    const titlePrefixes = {
+      'beginner': ['Introducing', 'Getting Started with', 'Basics of', 'Fundamentals of'],
+      'intermediate': ['Mastering', 'Deep Dive into', 'Practical', 'Working with'],
+      'advanced': ['Advanced', 'Expert-Level', 'Professional', 'Specialized']
+    };
+    
+    const prefixList = titlePrefixes[difficulty as keyof typeof titlePrefixes] || titlePrefixes.beginner;
+    const prefix = prefixList[Math.floor(Math.random() * prefixList.length)];
+    
+    return `${prefix} ${this.capitalizeFirstLetter(topic)}`;
   }
 
+  /**
+   * Generate slides based on topic
+   */
   private generateSlidesForTopic(topic: string, language: string, difficulty: string): any[] {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // a complete set of slides based on the topic, language, and difficulty
+    // Basic slides for every lesson
     return [
       {
         title: "Introduction",
         content: this.generateIntroContent(topic, language),
         type: "info",
-        tags: ["introduction", topic.toLowerCase()],
+        tags: [topic, language, difficulty, "introduction"],
       },
       {
         title: "Core Concepts",
         content: this.generateConceptsContent(topic, language),
         type: "info",
-        tags: ["concepts", topic.toLowerCase()],
+        tags: [topic, language, difficulty, "concepts"],
       },
       {
-        title: "Coding Challenge",
+        title: "Example Code",
+        content: `
+          <h1>Example: ${this.capitalizeFirstLetter(topic)}</h1>
+          <p>Here's a practical example of ${topic} in action:</p>
+          <pre><code>${this.getExampleCodeForTopic(topic, language)}</code></pre>
+          <p>Try modifying this code to see how it works!</p>
+        `,
+        type: "info",
+        tags: [topic, language, difficulty, "example"],
+      },
+      {
+        title: "Challenge",
         content: this.generateChallengeContent(topic, language),
         type: "challenge",
-        tags: ["challenge", topic.toLowerCase()],
-        initialCode: "// Starter code for challenge would go here",
-        filename: `challenge.${language.toLowerCase() === 'javascript' ? 'js' : language.toLowerCase() === 'python' ? 'py' : 'txt'}`,
-        tests: [{
-          id: uuidv4(),
-          name: "Example Test",
-          description: "Basic functionality test",
-          validation: "// Test validation code",
-          type: 'js'
-        }],
+        tags: [topic, language, difficulty, "challenge"],
+        initialCode: this.generateInitialCode(topic, language),
+        filename: language === 'javascript' ? 'script.js' : (language === 'python' ? 'main.py' : 'code.txt'),
+        tests: this.generateTests(topic, language),
+      },
+      {
+        title: "Common Patterns",
+        content: `
+          <h1>Common Patterns with ${this.capitalizeFirstLetter(topic)}</h1>
+          <p>Here are some frequently used patterns when working with ${topic}:</p>
+          <ul>
+            <li><strong>Pattern 1:</strong> Basic implementation</li>
+            <li><strong>Pattern 2:</strong> Advanced usage</li>
+            <li><strong>Pattern 3:</strong> Optimization techniques</li>
+          </ul>
+          <div class="info-box">
+            <h3>Pro Tip</h3>
+            <p>Always consider the context and requirements before choosing a pattern!</p>
+          </div>
+        `,
+        type: "info",
+        tags: [topic, language, difficulty, "patterns"],
       },
       {
         title: "Knowledge Check",
         content: this.generateQuizContent(topic, language),
         type: "quiz",
-        tags: ["quiz", topic.toLowerCase()],
+        tags: [topic, language, difficulty, "quiz"],
       }
     ];
   }
 
+  /**
+   * Capitalize the first letter of a string
+   */
   private capitalizeFirstLetter(string: string): string {
     return string.charAt(0).toUpperCase() + string.slice(1);
   }
 
+  /**
+   * Generate Introduction slide content
+   */
   private generateIntroContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // engaging intro content
-    return `# Introduction to ${topic}\n\n${this.getDefinitionForTopic(topic)}`;
+    return `
+      <h1>Introduction to ${this.capitalizeFirstLetter(topic)}</h1>
+      <p>${this.getDefinitionForTopic(topic)}</p>
+      <div class="info-box">
+        <h3>What You'll Learn</h3>
+        <ul>
+          <li>Understanding the basics of ${topic}</li>
+          <li>How to implement ${topic} in ${language}</li>
+          <li>Best practices and common pitfalls</li>
+        </ul>
+      </div>
+      <p>Let's get started with ${topic}!</p>
+    `;
   }
 
+  /**
+   * Generate Concepts slide content
+   */
   private generateConceptsContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // detailed concept explanations
-    return `# Core Concepts of ${topic}\n\n${this.getUsageForTopic(topic)}\n\n## Best Practices\n\n${this.getBestPracticesForTopic(topic)}\n\n\`\`\`${language.toLowerCase()}\n${this.getExampleCodeForTopic(topic, language)}\n\`\`\``;
+    return `
+      <h1>Core Concepts of ${this.capitalizeFirstLetter(topic)}</h1>
+      <p>Before diving into code, let's understand the key concepts:</p>
+      <div class="concept-grid">
+        <div class="concept">
+          <h3>Concept 1</h3>
+          <p>The fundamental principle behind ${topic}.</p>
+        </div>
+        <div class="concept">
+          <h3>Concept 2</h3>
+          <p>How ${topic} is typically used in ${language}.</p>
+        </div>
+        <div class="concept">
+          <h3>Concept 3</h3>
+          <p>Advanced applications and variations.</p>
+        </div>
+      </div>
+      <p>${this.getUsageForTopic(topic)}</p>
+    `;
   }
 
+  /**
+   * Generate Challenge slide content
+   */
   private generateChallengeContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // challenging but accessible coding exercises
-    return `# Practice ${topic}\n\n${this.getChallengeDescriptionForTopic(topic, language)}\n\n## Hint\n\n${this.getHintForTopic(topic, language)}`;
+    return `
+      <h1>Challenge: Implement ${this.capitalizeFirstLetter(topic)}</h1>
+      <p>${this.getChallengeDescriptionForTopic(topic, language)}</p>
+      <div class="hint-toggle">
+        <button onclick="toggleHint()">Show Hint</button>
+      </div>
+      <div id="hint-content" style="display: none;">
+        <div class="hint-box">
+          <h3>Hint</h3>
+          <p>${this.getHintForTopic(topic, language)}</p>
+        </div>
+      </div>
+      
+      <script>
+        // Define global helper functions for interactive elements
+        window.toggleHint = function() {
+          const hintContent = document.getElementById('hint-content');
+          const hintButton = document.querySelector('.hint-toggle');
+          
+          if (hintContent.style.display === 'none') {
+            hintContent.style.display = 'block';
+            hintButton.innerHTML = '<button>Hide Hint</button>';
+          } else {
+            hintContent.style.display = 'none';
+            hintButton.innerHTML = '<button>Show Hint</button>';
+          }
+        }
+      </script>
+    `;
   }
 
+  /**
+   * Generate Quiz slide content
+   */
   private generateQuizContent(topic: string, language: string): string {
-    // This is a placeholder - in a real implementation, you would use OpenAI to generate
-    // quiz questions that reinforce learning
-    return `# Test Your Knowledge\n\n## Which of the following is true about ${topic}?\n\n- A. ${this.getQuizAnswerForTopic(topic, "A")}\n- B. ${this.getQuizAnswerForTopic(topic, "B")}\n- C. ${this.getQuizAnswerForTopic(topic, "C")}\n- D. ${this.getQuizAnswerForTopic(topic, "D")}`;
+    return `
+      <h1>Quiz: Test Your Knowledge</h1>
+      <p>Select the correct answer about ${topic}:</p>
+      <div class="quiz-container">
+        <div class="quiz-option" data-option="A" onclick="selectOption('A')">
+          <strong>A:</strong> ${this.getQuizAnswerForTopic(topic, 'A')}
+        </div>
+        <div class="quiz-option" data-option="B" onclick="selectOption('B')">
+          <strong>B:</strong> ${this.getQuizAnswerForTopic(topic, 'B')}
+        </div>
+        <div class="quiz-option" data-option="C" onclick="selectOption('C')">
+          <strong>C:</strong> ${this.getQuizAnswerForTopic(topic, 'C')}
+        </div>
+        <div id="feedback-correct">
+          ✅ Correct! Well done! ${topic} is indeed a powerful concept.
+        </div>
+        <div id="feedback-incorrect">
+          ❌ Not quite right. Try again! Think about how ${topic} is typically used.
+        </div>
+      </div>
+      
+      <script>
+        // Define global helper functions for quiz
+        window.selectOption = function(option) {
+          const options = document.querySelectorAll('.quiz-option');
+          options.forEach(opt => opt.classList.remove('correct', 'incorrect'));
+          
+          const selectedOption = document.querySelector(\`.quiz-option[data-option="\${option}"]\`);
+          const correctFeedback = document.getElementById('feedback-correct');
+          const incorrectFeedback = document.getElementById('feedback-incorrect');
+          
+          correctFeedback.style.display = 'none';
+          incorrectFeedback.style.display = 'none';
+          
+          // For demonstration, let's say option "B" is always correct
+          if (option === 'B') {
+            selectedOption.classList.add('correct');
+            correctFeedback.style.display = 'block';
+          } else {
+            selectedOption.classList.add('incorrect');
+            incorrectFeedback.style.display = 'block';
+          }
+        }
+      </script>
+    `;
   }
 
+  /**
+   * Generate a definition for a topic
+   */
   private getDefinitionForTopic(topic: string): string {
-    return `This is a definition of ${topic} that would be generated by OpenAI in a real implementation.`;
+    // Simplified example - in a real implementation, this would be more sophisticated
+    return `${this.capitalizeFirstLetter(topic)} is a fundamental concept in programming that helps developers create more efficient and maintainable code. It provides a structured approach to solving common problems in software development.`;
   }
 
+  /**
+   * Generate usage information for a topic
+   */
   private getUsageForTopic(topic: string): string {
-    return `Here's how you typically use ${topic} in real-world programming scenarios.`;
+    return `${this.capitalizeFirstLetter(topic)} is commonly used when you need to organize code, improve performance, or handle complex data structures. Understanding ${topic} will help you write cleaner, more efficient code.`;
   }
 
+  /**
+   * Generate best practices for a topic
+   */
   private getBestPracticesForTopic(topic: string): string {
-    return `When working with ${topic}, it's important to follow these best practices...`;
+    return `
+      When working with ${topic}, keep these best practices in mind:
+      <ul>
+        <li>Always consider the performance implications</li>
+        <li>Write clean, self-documenting code</li>
+        <li>Test thoroughly to catch edge cases</li>
+        <li>Consider reusability and maintainability</li>
+      </ul>
+    `;
   }
 
+  /**
+   * Generate example code for a topic in a specific language
+   */
   private getExampleCodeForTopic(topic: string, language: string): string {
-    if (language.toLowerCase() === "javascript") {
-      return `// Example JavaScript code for ${topic}\nfunction example() {\n  console.log("This is a ${topic} example");\n}`;
-    } else if (language.toLowerCase() === "python") {
-      return `# Example Python code for ${topic}\ndef example():\n    print("This is a ${topic} example")`;
-    }
-    return `// Example code for ${topic}`;
-  }
+    if (language === 'javascript' || language === 'typescript') {
+      return `// Example of ${topic} in JavaScript
+function exampleFunction() {
+  // Implementation related to ${topic}
+  const data = [1, 2, 3, 4, 5];
+  const result = data.map(item => item * 2);
+  console.log(result);
+  return result;
+}
 
-  private getChallengeDescriptionForTopic(topic: string, language: string): string {
-    return `Your task is to implement a function that demonstrates your understanding of ${topic}.`;
-  }
+// Call the function
+exampleFunction();`;
+    } else if (language === 'python') {
+      return `# Example of ${topic} in Python
+def example_function():
+    # Implementation related to ${topic}
+    data = [1, 2, 3, 4, 5]
+    result = [item * 2 for item in data]
+    print(result)
+    return result
 
-  private getHintForTopic(topic: string, language: string): string {
-    return `Think about how ${topic} works and what operations you can perform with it.`;
-  }
+# Call the function
+example_function()`;
+    } else if (language === 'html') {
+      return `<!-- Example of ${topic} in HTML -->
+<div class="container">
+  <h1>Example of ${topic}</h1>
+  <p>This demonstrates a basic implementation.</p>
+  <div class="example-content">
+    <span>This is a sample element</span>
+  </div>
+</div>`;
+    } else if (language === 'css') {
+      return `/* Example of ${topic} in CSS */
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background-color: #f5f5f5;
+}
 
-  private getQuizAnswerForTopic(topic: string, option: string): string {
-    if (option === "A") {
-      return `An accurate statement about ${topic}`;
-    } else if (option === "B") {
-      return `A related but incorrect statement about ${topic}`;
-    } else if (option === "C") {
-      return `A common misconception about ${topic}`;
+.example-content {
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 5px;
+}`;
     } else {
-      return `A completely unrelated statement about programming`;
+      return `// Example of ${topic}
+// This is a generic code example
+// Replace with specific code relevant to your language and topic`;
+    }
+  }
+
+  /**
+   * Generate a challenge description for a topic
+   */
+  private getChallengeDescriptionForTopic(topic: string, language: string): string {
+    return `Now it's your turn to implement a solution using ${topic}! 
+      
+    Your task is to write code that demonstrates understanding of ${topic}. Try to use the concepts we've covered so far.
+      
+    Complete the code in the editor below.`;
+  }
+
+  /**
+   * Generate a hint for a challenge
+   */
+  private getHintForTopic(topic: string, language: string): string {
+    return `Think about how ${topic} can be applied to solve this problem. Consider using the example code as a starting point, but adapt it to the specific requirements of this challenge.`;
+  }
+
+  /**
+   * Generate a quiz answer for a topic
+   */
+  private getQuizAnswerForTopic(topic: string, option: string): string {
+    if (option === 'A') {
+      return `${this.capitalizeFirstLetter(topic)} is only used for visual formatting and has no functional purpose.`;
+    } else if (option === 'B') {
+      return `${this.capitalizeFirstLetter(topic)} is a programming concept that helps organize and structure code for better functionality and maintenance.`;
+    } else if (option === 'C') {
+      return `${this.capitalizeFirstLetter(topic)} was deprecated in recent programming language updates and should not be used anymore.`;
+    } else {
+      return `An answer about ${topic}`;
     }
   }
 
@@ -666,1328 +1117,68 @@ __SUGGESTION__:You decide!
    * Generate the appropriate CSS and JS content based on the selected style template
    */
   private generateStyleTemplateForLesson(style: string, topic: string): { cssContent: string, jsContent: string } {
-    switch(style) {
-      case 'brown-markdown':
-        return this.generateBrownMarkdownStyle(topic);
-      case 'neon-racer':
-        return this.generateNeonRacerStyle(topic);
-      case 'interaction-galore':
-        return this.generateInteractionGaloreStyle(topic);
-      case 'practical-project':
-        return this.generatePracticalProjectStyle(topic);
-      default:
-        // Default to Brown Markdown if no style is provided or recognized
-        return this.generateBrownMarkdownStyle(topic);
-    }
+    // Import the templates from the templates directory
+    const { generateStyleTemplateForLesson } = require('../templates');
+    return generateStyleTemplateForLesson(style, topic);
   }
 
   /**
-   * Brown Markdown 🏖️: A relaxed, earthy style with tan/beige/brown colors
+   * Generate initial code for a challenge
    */
-  private generateBrownMarkdownStyle(topic: string): { cssContent: string, jsContent: string } {
-    return {
-      cssContent: `
-        /* Brown Markdown Style - Relaxed, earthy theme */
-        :root {
-          --primary-color: #8B4513;
-          --secondary-color: #A0522D;
-          --background-color: #F5F5DC;
-          --text-color: #3E2723;
-          --accent-color: #D2B48C;
-          --highlight-color: #CD853F;
-          --code-bg: #F0E6D2;
-          --info-bg: #E6D9B8;
-          --warning-bg: #F8D7DA;
-        }
-
-        body, html {
-          font-family: 'Georgia', serif;
-          color: var(--text-color);
-          background-color: var(--background-color);
-          line-height: 1.6;
-        }
-
-        h1, h2, h3, h4, h5 {
-          font-family: 'Bookman', serif;
-          color: var(--primary-color);
-          margin-bottom: 1rem;
-          border-bottom: 1px solid var(--accent-color);
-          padding-bottom: 0.5rem;
-        }
-
-        code {
-          font-family: 'Courier New', monospace;
-          background-color: var(--code-bg);
-          padding: 0.2rem 0.4rem;
-          border-radius: 3px;
-          font-size: 0.9em;
-        }
-
-        pre {
-          background-color: var(--code-bg);
-          padding: 1rem;
-          border-radius: 5px;
-          border-left: 4px solid var(--primary-color);
-          overflow-x: auto;
-        }
-
-        blockquote {
-          border-left: 4px solid var(--accent-color);
-          padding-left: 1rem;
-          margin-left: 0;
-          color: var(--secondary-color);
-          font-style: italic;
-        }
-
-        /* Special elements */
-        .info-box {
-          background-color: var(--info-bg);
-          border-left: 4px solid var(--primary-color);
-          padding: 1rem;
-          margin: 1rem 0;
-          border-radius: 5px;
-        }
-
-        .warning-box {
-          background-color: var(--warning-bg);
-          border-left: 4px solid #DC3545;
-          padding: 1rem;
-          margin: 1rem 0;
-          border-radius: 5px;
-        }
-
-        .hint-box {
-          background-color: var(--accent-color);
-          border-left: 4px solid var(--highlight-color);
-          padding: 1rem;
-          margin: 1rem 0;
-          border-radius: 5px;
-          position: relative;
-        }
-
-        /* Challenge and Quiz styling */
-        .challenge-container, .quiz-container {
-          background-color: var(--info-bg);
-          border: 1px solid var(--accent-color);
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin: 2rem 0;
-          box-shadow: 0 4px 8px rgba(62, 39, 35, 0.1);
-        }
-
-        /* Buttons */
-        button {
-          background-color: var(--primary-color);
-          color: white;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 5px;
-          cursor: pointer;
-          font-family: inherit;
-          transition: background-color 0.3s;
-        }
-
-        button:hover {
-          background-color: var(--highlight-color);
-        }
-
-        /* Links */
-        a {
-          color: var(--secondary-color);
-          text-decoration: none;
-          border-bottom: 1px dashed var(--secondary-color);
-        }
-
-        a:hover {
-          color: var(--primary-color);
-          border-bottom: 1px solid var(--primary-color);
-        }
-      `,
-      jsContent: `
-        // Brown Markdown Style - Helper JavaScript functions
-        document.addEventListener('DOMContentLoaded', function() {
-          // Set up any collapsible sections
-          const collapsibles = document.querySelectorAll('.collapsible');
-          collapsibles.forEach(collapsible => {
-            const header = collapsible.querySelector('.collapsible-header');
-            const content = collapsible.querySelector('.collapsible-content');
-            
-            if (header && content) {
-              content.style.display = 'none';
-              header.addEventListener('click', () => {
-                if (content.style.display === 'none') {
-                  content.style.display = 'block';
-                  header.classList.add('open');
-                } else {
-                  content.style.display = 'none';
-                  header.classList.remove('open');
-                }
-              });
-            }
-          });
-        });
-      `
-    };
-  }
-
-  /**
-   * Neon Racer 🏎️: A vibrant, high-energy style with neon colors and animations
-   */
-  private generateNeonRacerStyle(topic: string): { cssContent: string, jsContent: string } {
-    return {
-      cssContent: `
-        /* Neon Racer Style - Vibrant, high-energy theme */
-        :root {
-          --primary-color: #FF00FF;
-          --secondary-color: #00FFFF;
-          --background-color: #0F0F1A;
-          --text-color: #F0F0F0;
-          --accent-color: #FF00AA;
-          --highlight-color: #00FF00;
-          --code-bg: #1A1A2E;
-          --info-bg: #1E1E3A;
-          --warning-bg: #3A1E1E;
-        }
-
-        @keyframes neon-glow {
-          0% { text-shadow: 0 0 5px var(--primary-color), 0 0 10px var(--primary-color); }
-          50% { text-shadow: 0 0 10px var(--primary-color), 0 0 20px var(--primary-color), 0 0 30px var(--primary-color); }
-          100% { text-shadow: 0 0 5px var(--primary-color), 0 0 10px var(--primary-color); }
-        }
-
-        @keyframes border-pulse {
-          0% { border-color: var(--primary-color); }
-          50% { border-color: var(--secondary-color); }
-          100% { border-color: var(--primary-color); }
-        }
-
-        body, html {
-          font-family: 'Orbitron', 'Tahoma', sans-serif;
-          color: var(--text-color);
-          background-color: var(--background-color);
-          line-height: 1.6;
-          background-image: 
-            linear-gradient(rgba(15, 15, 26, 0.8), rgba(15, 15, 26, 0.8)),
-            repeating-linear-gradient(90deg, rgba(255, 0, 255, 0.05) 0px, rgba(255, 0, 255, 0.05) 1px, transparent 1px, transparent 50px),
-            repeating-linear-gradient(0deg, rgba(0, 255, 255, 0.05) 0px, rgba(0, 255, 255, 0.05) 1px, transparent 1px, transparent 50px);
-        }
-
-        h1, h2, h3, h4, h5 {
-          font-family: 'Orbitron', 'Impact', sans-serif;
-          color: var(--primary-color);
-          animation: neon-glow 2s ease-in-out infinite;
-          margin-bottom: 1.5rem;
-          position: relative;
-          display: inline-block;
-        }
-
-        h1::after, h2::after {
-          content: '';
-          position: absolute;
-          bottom: -10px;
-          left: 0;
-          width: 100%;
-          height: 2px;
-          background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--primary-color));
-          animation: border-pulse 2s infinite;
-        }
-
-        code {
-          font-family: 'Courier New', monospace;
-          background-color: var(--code-bg);
-          color: var(--highlight-color);
-          padding: 0.2rem 0.4rem;
-          border-radius: 3px;
-          font-size: 0.9em;
-          border: 1px solid var(--secondary-color);
-        }
-
-        pre {
-          background-color: var(--code-bg);
-          padding: 1rem;
-          border-radius: 5px;
-          border: 1px solid var(--secondary-color);
-          overflow-x: auto;
-          position: relative;
-        }
-
-        pre::before {
-          content: 'CODE';
-          position: absolute;
-          top: -10px;
-          right: 10px;
-          background-color: var(--background-color);
-          color: var(--secondary-color);
-          padding: 0 8px;
-          font-size: 0.8em;
-          border-radius: 10px;
-          border: 1px solid var(--secondary-color);
-        }
-
-        /* Special elements */
-        .info-box {
-          background-color: var(--info-bg);
-          border: 1px solid var(--secondary-color);
-          box-shadow: 0 0 10px var(--secondary-color);
-          padding: 1rem;
-          margin: 1rem 0;
-          border-radius: 5px;
-        }
-
-        .warning-box {
-          background-color: var(--warning-bg);
-          border: 1px solid var(--accent-color);
-          box-shadow: 0 0 10px var(--accent-color);
-          padding: 1rem;
-          margin: 1rem 0;
-          border-radius: 5px;
-        }
-
-        /* Buttons */
-        button {
-          background-color: transparent;
-          color: var(--primary-color);
-          border: 2px solid var(--primary-color);
-          padding: 0.5rem 1.5rem;
-          border-radius: 50px;
-          cursor: pointer;
-          font-family: 'Orbitron', sans-serif;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          position: relative;
-          overflow: hidden;
-          z-index: 1;
-          transition: color 0.3s;
-        }
-
-        button::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 0;
-          height: 100%;
-          background-color: var(--primary-color);
-          z-index: -1;
-          transition: width 0.3s;
-        }
-
-        button:hover {
-          color: var(--background-color);
-        }
-
-        button:hover::before {
-          width: 100%;
-        }
-
-        /* Progress bar */
-        .progress-container {
-          width: 100%;
-          height: 10px;
-          background-color: var(--code-bg);
-          border-radius: 5px;
-          margin: 1rem 0;
-          overflow: hidden;
-        }
-
-        .progress-bar {
-          height: 100%;
-          background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-          border-radius: 5px;
-          transition: width 0.5s;
-        }
-      `,
-      jsContent: `
-        // Neon Racer Style - Helper JavaScript functions
-        document.addEventListener('DOMContentLoaded', function() {
-          // Add particle background
-          const createParticles = () => {
-            const container = document.createElement('div');
-            container.className = 'particles-container';
-            container.style.position = 'fixed';
-            container.style.top = '0';
-            container.style.left = '0';
-            container.style.width = '100%';
-            container.style.height = '100%';
-            container.style.pointerEvents = 'none';
-            container.style.zIndex = '-1';
-            document.body.appendChild(container);
-            
-            for (let i = 0; i < 50; i++) {
-              const particle = document.createElement('div');
-              particle.className = 'particle';
-              particle.style.position = 'absolute';
-              particle.style.width = Math.random() * 3 + 1 + 'px';
-              particle.style.height = particle.style.width;
-              particle.style.backgroundColor = Math.random() > 0.5 ? '#FF00FF' : '#00FFFF';
-              particle.style.borderRadius = '50%';
-              particle.style.opacity = Math.random() * 0.5 + 0.2;
-              
-              // Random starting positions
-              particle.style.top = Math.random() * 100 + 'vh';
-              particle.style.left = Math.random() * 100 + 'vw';
-              
-              // Add animation
-              particle.style.animation = \`float \${Math.random() * 10 + 10}s linear infinite\`;
-              particle.style.animationDelay = \`-\${Math.random() * 10}s\`;
-              
-              container.appendChild(particle);
-            }
-            
-            // Add the float animation
-            const style = document.createElement('style');
-            style.innerHTML = \`
-              @keyframes float {
-                0% { transform: translateY(0); }
-                100% { transform: translateY(-100vh); }
-              }
-            \`;
-            document.head.appendChild(style);
-          };
-          
-          createParticles();
-          
-          // Add click effects
-          document.addEventListener('click', (e) => {
-            const ripple = document.createElement('div');
-            ripple.className = 'click-ripple';
-            ripple.style.position = 'fixed';
-            ripple.style.width = '10px';
-            ripple.style.height = '10px';
-            ripple.style.borderRadius = '50%';
-            ripple.style.background = 'radial-gradient(circle, #FF00FF 0%, transparent 70%)';
-            ripple.style.top = e.clientY + 'px';
-            ripple.style.left = e.clientX + 'px';
-            ripple.style.transform = 'translate(-50%, -50%)';
-            ripple.style.animation = 'ripple-effect 1s ease-out forwards';
-            
-            document.body.appendChild(ripple);
-            
-            setTimeout(() => {
-              ripple.remove();
-            }, 1000);
-          });
-          
-          // Add ripple effect animation
-          const rippleStyle = document.createElement('style');
-          rippleStyle.innerHTML = \`
-            @keyframes ripple-effect {
-              0% { width: 0px; height: 0px; opacity: 1; }
-              100% { width: 100px; height: 100px; opacity: 0; }
-            }
-          \`;
-          document.head.appendChild(rippleStyle);
-        });
-      `
-    };
-  }
-
-  /**
-   * Interaction Galore 💃🏽: A style focused on interactive elements with plenty of clickable components
-   */
-  private generateInteractionGaloreStyle(topic: string): { cssContent: string, jsContent: string } {
-    return {
-      cssContent: `
-        /* Interaction Galore Style - Highly interactive theme */
-        :root {
-          --primary-color: #4285F4;
-          --secondary-color: #34A853;
-          --tertiary-color: #FBBC05;
-          --quaternary-color: #EA4335;
-          --background-color: #FFFFFF;
-          --panel-bg: #F8F9FA;
-          --text-color: #202124;
-          --text-secondary: #5F6368;
-          --border-color: #DADCE0;
-          --shadow-color: rgba(60, 64, 67, 0.15);
-        }
-
-        body, html {
-          font-family: 'Roboto', 'Segoe UI', sans-serif;
-          color: var(--text-color);
-          background-color: var(--background-color);
-          line-height: 1.6;
-        }
-
-        h1, h2, h3, h4, h5 {
-          font-family: 'Google Sans', 'Roboto', sans-serif;
-          color: var(--primary-color);
-          margin-bottom: 1rem;
-        }
-
-        /* Interactive Panels */
-        .panel {
-          background-color: var(--panel-bg);
-          border-radius: 8px;
-          box-shadow: 0 2px 6px var(--shadow-color);
-          padding: 1.5rem;
-          margin: 1.5rem 0;
-          transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .panel:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 4px 12px var(--shadow-color);
-        }
-
-        /* Tabs System */
-        .tabs-container {
-          border-bottom: 1px solid var(--border-color);
-          margin-bottom: 1.5rem;
-        }
-
-        .tab-buttons {
-          display: flex;
-          gap: 0.5rem;
-          overflow-x: auto;
-          padding-bottom: 0.5rem;
-        }
-
-        .tab-btn {
-          background: none;
-          border: none;
-          padding: 0.75rem 1.25rem;
-          border-radius: 20px;
-          cursor: pointer;
-          font-weight: 500;
-          color: var(--text-secondary);
-          position: relative;
-          transition: color 0.3s;
-        }
-
-        .tab-btn.active {
-          color: var(--primary-color);
-          background-color: rgba(66, 133, 244, 0.1);
-        }
-
-        .tab-content {
-          display: none;
-          padding: 1rem 0;
-        }
-
-        .tab-content.active {
-          display: block;
-          animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        /* Accordions */
-        .accordion {
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          margin-bottom: 1rem;
-          overflow: hidden;
-        }
-
-        .accordion-header {
-          padding: 1rem;
-          background-color: var(--panel-bg);
-          cursor: pointer;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-weight: 500;
-        }
-
-        .accordion-content {
-          max-height: 0;
-          overflow: hidden;
-          transition: max-height 0.3s ease-out;
-          background-color: var(--background-color);
-          padding: 0 1rem;
-        }
-
-        .accordion.open .accordion-content {
-          max-height: 500px;
-          padding: 1rem;
-        }
-
-        .accordion-icon {
-          transition: transform 0.3s;
-        }
-
-        .accordion.open .accordion-icon {
-          transform: rotate(180deg);
-        }
-
-        /* Cards */
-        .cards-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 1rem;
-        }
-
-        .card {
-          background-color: var(--panel-bg);
-          border-radius: 8px;
-          border: 1px solid var(--border-color);
-          overflow: hidden;
-          transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 4px 12px var(--shadow-color);
-        }
-
-        .card-header {
-          padding: 1rem;
-          background-color: var(--primary-color);
-          color: white;
-          font-weight: 500;
-        }
-
-        .card-body {
-          padding: 1rem;
-        }
-
-        .card-footer {
-          padding: 1rem;
-          border-top: 1px solid var(--border-color);
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        /* Buttons */
-        button {
-          background-color: var(--primary-color);
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 0.5rem 1rem;
-          font-family: inherit;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-
-        button:hover {
-          background-color: #3367D6;
-        }
-
-        button.secondary {
-          background-color: transparent;
-          color: var(--primary-color);
-          border: 1px solid var(--primary-color);
-        }
-
-        button.secondary:hover {
-          background-color: rgba(66, 133, 244, 0.1);
-        }
-
-        /* Toggle Switch */
-        .toggle-switch {
-          position: relative;
-          display: inline-block;
-          width: 40px;
-          height: 20px;
-          margin: 0 10px;
-        }
-
-        .toggle-switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-
-        .slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: #ccc;
-          transition: .4s;
-          border-radius: 20px;
-        }
-
-        .slider:before {
-          position: absolute;
-          content: "";
-          height: 16px;
-          width: 16px;
-          left: 3px;
-          bottom: 2px;
-          background-color: white;
-          transition: .4s;
-          border-radius: 50%;
-        }
-
-        input:checked + .slider {
-          background-color: var(--primary-color);
-        }
-
-        input:checked + .slider:before {
-          transform: translateX(18px);
-        }
-
-        /* Tooltips */
-        .tooltip {
-          position: relative;
-          display: inline-block;
-          cursor: help;
-        }
-
-        .tooltip .tooltip-text {
-          visibility: hidden;
-          width: 200px;
-          background-color: var(--text-color);
-          color: #fff;
-          text-align: center;
-          border-radius: 6px;
-          padding: 8px;
-          position: absolute;
-          z-index: 1;
-          bottom: 125%;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0;
-          transition: opacity 0.3s;
-        }
-
-        .tooltip:hover .tooltip-text {
-          visibility: visible;
-          opacity: 1;
-        }
-
-        /* Progress Indicators */
-        .progress-bar {
-          width: 100%;
-          height: 8px;
-          background-color: #E0E0E0;
-          border-radius: 4px;
-          overflow: hidden;
-          margin: 1rem 0;
-        }
-
-        .progress-value {
-          height: 100%;
-          background-color: var(--primary-color);
-          width: 0;
-          transition: width 1s ease;
-          border-radius: 4px;
-        }
-      `,
-      jsContent: `
-        // Interaction Galore Style - Helper JavaScript functions
-        document.addEventListener('DOMContentLoaded', function() {
-          // Tab system
-          const initTabs = () => {
-            const tabBtns = document.querySelectorAll('.tab-btn');
-            tabBtns.forEach(btn => {
-              btn.addEventListener('click', (e) => {
-                window.showTab(e, btn.dataset.tab);
-              });
-            });
-
-            // Initialize first tab
-            if (tabBtns.length > 0) {
-              const firstBtn = tabBtns[0];
-              firstBtn.click();
-            }
-          };
-
-          // Accordion system
-          const initAccordions = () => {
-            const accordions = document.querySelectorAll('.accordion');
-            accordions.forEach(accordion => {
-              const header = accordion.querySelector('.accordion-header');
-              header.addEventListener('click', () => {
-                accordion.classList.toggle('open');
-              });
-            });
-          };
-
-          // Progress bars
-          const initProgressBars = () => {
-            const progressBars = document.querySelectorAll('.progress-bar');
-            progressBars.forEach(bar => {
-              const value = bar.dataset.value || 0;
-              const progressValue = bar.querySelector('.progress-value');
-              setTimeout(() => {
-                progressValue.style.width = \`\${value}%\`;
-              }, 500);
-            });
-          };
-
-          // Initialize interactive elements
-          initTabs();
-          initAccordions();
-          initProgressBars();
-
-          // Custom input elements
-          const rangeInputs = document.querySelectorAll('input[type="range"]');
-          rangeInputs.forEach(input => {
-            const output = document.createElement('output');
-            output.for = input.id;
-            output.style.marginLeft = '10px';
-            output.textContent = input.value;
-            
-            input.parentNode.insertBefore(output, input.nextSibling);
-            
-            input.addEventListener('input', () => {
-              output.textContent = input.value;
-            });
-          });
-
-          // Animation for elements as they enter viewport
-          const observeElements = () => {
-            const observerOptions = {
-              root: null,
-              rootMargin: '0px',
-              threshold: 0.1
-            };
-
-            const observer = new IntersectionObserver((entries) => {
-              entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add('visible');
-                  observer.unobserve(entry.target);
-                }
-              });
-            }, observerOptions);
-
-            document.querySelectorAll('.panel, .card, .accordion').forEach(el => {
-              el.classList.add('animate-on-scroll');
-              observer.observe(el);
-            });
-          };
-
-          // Add animation classes
-          const style = document.createElement('style');
-          style.innerHTML = \`
-            .animate-on-scroll {
-              opacity: 0;
-              transform: translateY(20px);
-              transition: opacity 0.6s, transform 0.6s;
-            }
-            .animate-on-scroll.visible {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          \`;
-          document.head.appendChild(style);
-
-          observeElements();
-        });
-      `
-    };
-  }
-
-  /**
-   * Practical Project Building 🚀: A style focused on progressive learning with each slide building on the previous
-   */
-  private generatePracticalProjectStyle(topic: string): { cssContent: string, jsContent: string } {
-    return {
-      cssContent: `
-        /* Practical Project Building Style - Progressive learning theme */
-        :root {
-          --primary-color: #0070F3;
-          --secondary-color: #0366D6;
-          --background-color: #FFFFFF;
-          --panel-bg: #F6F8FA;
-          --success-color: #28A745;
-          --warning-color: #FFC107;
-          --danger-color: #DC3545;
-          --text-color: #24292E;
-          --text-secondary: #586069;
-          --border-color: #E1E4E8;
-          --code-bg: #F6F8FA;
-        }
-
-        body, html {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-          color: var(--text-color);
-          background-color: var(--background-color);
-          line-height: 1.6;
-        }
-
-        h1, h2, h3, h4, h5 {
-          font-weight: 600;
-          margin-bottom: 1rem;
-        }
-
-        h1 {
-          font-size: 1.75rem;
-          border-bottom: 1px solid var(--border-color);
-          padding-bottom: 0.5rem;
-        }
-
-        h2 {
-          font-size: 1.5rem;
-        }
-
-        /* Project Structure */
-        .project-container {
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          margin: 1.5rem 0;
-          overflow: hidden;
-        }
-
-        .project-header {
-          background-color: var(--panel-bg);
-          padding: 1rem;
-          border-bottom: 1px solid var(--border-color);
-          font-weight: 600;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .project-content {
-          padding: 1rem;
-        }
-
-        .files-tree {
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          margin-bottom: 1rem;
-        }
-
-        .file-item, .folder-item {
-          padding: 0.5rem 1rem;
-          border-bottom: 1px solid var(--border-color);
-          font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-          font-size: 0.9rem;
-          display: flex;
-          align-items: center;
-        }
-
-        .file-item:last-child, .folder-item:last-child {
-          border-bottom: none;
-        }
-
-        .file-item:before, .folder-item:before {
-          content: '';
-          display: inline-block;
-          width: 16px;
-          height: 16px;
-          margin-right: 0.5rem;
-          background-size: contain;
-          background-repeat: no-repeat;
-        }
-
-        .file-item.selected {
-          background-color: #0366D610;
-        }
-
-        /* Code Blocks */
-        code {
-          font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-          background-color: var(--code-bg);
-          padding: 0.2em 0.4em;
-          border-radius: 3px;
-          font-size: 0.9em;
-          color: var(--secondary-color);
-        }
-
-        pre {
-          background-color: var(--code-bg);
-          padding: 1rem;
-          border-radius: 6px;
-          border: 1px solid var(--border-color);
-          overflow-x: auto;
-          margin: 1rem 0;
-        }
-
-        pre code {
-          background-color: transparent;
-          padding: 0;
-          font-size: 0.9rem;
-          color: var(--text-color);
-        }
-
-        /* Step Progression */
-        .steps-container {
-          display: flex;
-          margin: 2rem 0;
-          position: relative;
-          z-index: 1;
-        }
-
-        .steps-container:before {
-          content: '';
-          position: absolute;
-          top: 14px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background-color: var(--border-color);
-          z-index: -1;
-        }
-
-        .step {
-          flex: 1;
-          text-align: center;
-          position: relative;
-        }
-
-        .step-circle {
-          width: 30px;
-          height: 30px;
-          background-color: var(--panel-bg);
-          border: 2px solid var(--border-color);
-          border-radius: 50%;
-          margin: 0 auto 0.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
-
-        .step.active .step-circle {
-          background-color: var(--primary-color);
-          border-color: var(--primary-color);
-          color: white;
-        }
-
-        .step.completed .step-circle {
-          background-color: var(--success-color);
-          border-color: var(--success-color);
-          color: white;
-        }
-
-        .step-label {
-          font-size: 0.8rem;
-          color: var(--text-secondary);
-          max-width: 100px;
-          margin: 0 auto;
-        }
-
-        .step.active .step-label {
-          color: var(--primary-color);
-          font-weight: 500;
-        }
-
-        /* Buttons */
-        button {
-          background-color: var(--primary-color);
-          color: white;
-          border: none;
-          border-radius: 6px;
-          padding: 0.5rem 1rem;
-          font-family: inherit;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        button:hover {
-          background-color: var(--secondary-color);
-        }
-
-        button.secondary {
-          background-color: var(--panel-bg);
-          color: var(--text-color);
-          border: 1px solid var(--border-color);
-        }
-
-        button.secondary:hover {
-          background-color: var(--border-color);
-        }
-
-        button.success {
-          background-color: var(--success-color);
-        }
-
-        button.success:hover {
-          background-color: #218838;
-        }
-
-        /* Alerts and Messages */
-        .alert {
-          padding: 1rem;
-          border-radius: 6px;
-          margin: 1rem 0;
-          border: 1px solid transparent;
-        }
-
-        .alert-success {
-          background-color: #D4EDDA;
-          border-color: #C3E6CB;
-          color: #155724;
-        }
-
-        .alert-warning {
-          background-color: #FFF3CD;
-          border-color: #FFEEBA;
-          color: #856404;
-        }
-
-        .alert-danger {
-          background-color: #F8D7DA;
-          border-color: #F5C6CB;
-          color: #721C24;
-        }
-
-        .alert-info {
-          background-color: #D1ECF1;
-          border-color: #BEE5EB;
-          color: #0C5460;
-        }
-
-        /* Task Lists */
-        .task-list {
-          list-style-type: none;
-          padding-left: 0;
-        }
-
-        .task-list li {
-          padding: 0.5rem 0;
-          display: flex;
-          align-items: flex-start;
-        }
-
-        .task-checkbox {
-          margin-right: 0.5rem;
-          margin-top: 0.25rem;
-        }
-
-        .task-completed {
-          text-decoration: line-through;
-          color: var(--text-secondary);
-        }
-      `,
-      jsContent: `
-        // Practical Project Building Style - Helper JavaScript functions
-        document.addEventListener('DOMContentLoaded', function() {
-          // File system visualization
-          const initFileExplorer = () => {
-            const folders = document.querySelectorAll('.folder-item');
-            
-            folders.forEach(folder => {
-              folder.addEventListener('click', () => {
-                const folderId = folder.dataset.folder;
-                const folderContents = document.querySelector(\`.folder-contents[data-folder="\${folderId}"]\`);
-                
-                if (folderContents) {
-                  folderContents.classList.toggle('hidden');
-                  folder.classList.toggle('expanded');
-                }
-              });
-            });
-            
-            const files = document.querySelectorAll('.file-item');
-            
-            files.forEach(file => {
-              file.addEventListener('click', () => {
-                // Deselect all files
-                files.forEach(f => f.classList.remove('selected'));
-                
-                // Select current file
-                file.classList.add('selected');
-                
-                const fileId = file.dataset.file;
-                const fileContents = document.querySelectorAll('.file-content');
-                
-                fileContents.forEach(content => {
-                  if (content.dataset.file === fileId) {
-                    content.classList.remove('hidden');
-                  } else {
-                    content.classList.add('hidden');
-                  }
-                });
-              });
-            });
-          };
-          
-          // Task checklist functionality
-          const initTaskLists = () => {
-            const taskCheckboxes = document.querySelectorAll('.task-checkbox');
-            
-            taskCheckboxes.forEach(checkbox => {
-              checkbox.addEventListener('change', () => {
-                const taskItem = checkbox.parentElement;
-                
-                if (checkbox.checked) {
-                  taskItem.classList.add('task-completed');
-                } else {
-                  taskItem.classList.remove('task-completed');
-                }
-                
-                // Check if all tasks are completed
-                const allCheckboxes = taskItem.parentElement.querySelectorAll('.task-checkbox');
-                const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
-                
-                if (allChecked) {
-                  const completionAlert = document.createElement('div');
-                  completionAlert.className = 'alert alert-success';
-                  completionAlert.textContent = 'Great job! You\'ve completed all the tasks for this section.';
-                  
-                  // Add after the task list
-                  taskItem.parentElement.after(completionAlert);
-                  
-                  // Auto-scroll to the alert
-                  setTimeout(() => {
-                    completionAlert.scrollIntoView({ behavior: 'smooth' });
-                  }, 300);
-                }
-              });
-            });
-          };
-          
-          // Step progression system
-          const initStepProgression = () => {
-            const nextButtons = document.querySelectorAll('.next-step-button');
-            const prevButtons = document.querySelectorAll('.prev-step-button');
-            
-            nextButtons.forEach(button => {
-              button.addEventListener('click', () => {
-                const currentStep = parseInt(button.dataset.currentStep);
-                const nextStep = currentStep + 1;
-                
-                // Update step indicators
-                const currentStepEl = document.querySelector(\`.step[data-step="\${currentStep}"]\`);
-                const nextStepEl = document.querySelector(\`.step[data-step="\${nextStep}"]\`);
-                
-                if (currentStepEl && nextStepEl) {
-                  currentStepEl.classList.remove('active');
-                  currentStepEl.classList.add('completed');
-                  nextStepEl.classList.add('active');
-                }
-                
-                // Show next step content
-                const currentContent = document.querySelector(\`.step-content[data-step="\${currentStep}"]\`);
-                const nextContent = document.querySelector(\`.step-content[data-step="\${nextStep}"]\`);
-                
-                if (currentContent && nextContent) {
-                  currentContent.classList.add('hidden');
-                  nextContent.classList.remove('hidden');
-                  
-                  // Scroll to the top of the new content
-                  nextContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              });
-            });
-            
-            prevButtons.forEach(button => {
-              button.addEventListener('click', () => {
-                const currentStep = parseInt(button.dataset.currentStep);
-                const prevStep = currentStep - 1;
-                
-                // Update step indicators
-                const currentStepEl = document.querySelector(\`.step[data-step="\${currentStep}"]\`);
-                const prevStepEl = document.querySelector(\`.step[data-step="\${prevStep}"]\`);
-                
-                if (currentStepEl && prevStepEl) {
-                  currentStepEl.classList.remove('active');
-                  prevStepEl.classList.remove('completed');
-                  prevStepEl.classList.add('active');
-                }
-                
-                // Show previous step content
-                const currentContent = document.querySelector(\`.step-content[data-step="\${currentStep}"]\`);
-                const prevContent = document.querySelector(\`.step-content[data-step="\${prevStep}"]\`);
-                
-                if (currentContent && prevContent) {
-                  currentContent.classList.add('hidden');
-                  prevContent.classList.remove('hidden');
-                  
-                  // Scroll to the top of the new content
-                  prevContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              });
-            });
-          };
-          
-          // Code diff visualization
-          const initCodeDiffs = () => {
-            const diffToggles = document.querySelectorAll('.diff-toggle');
-            
-            diffToggles.forEach(toggle => {
-              toggle.addEventListener('click', () => {
-                const diffId = toggle.dataset.diff;
-                const diffContent = document.querySelector(\`.diff-content[data-diff="\${diffId}"]\`);
-                
-                if (diffContent) {
-                  diffContent.classList.toggle('hidden');
-                  toggle.textContent = diffContent.classList.contains('hidden') ? 'Show Changes' : 'Hide Changes';
-                }
-              });
-            });
-          };
-          
-          // Initialize all components
-          initFileExplorer();
-          initTaskLists();
-          initStepProgression();
-          initCodeDiffs();
-        });
-      `
-    };
-  }
-  
-  private getQuizAnswerForTopic(topic: string, option: string): string {
-    if (option === "A") {
-      return `An accurate statement about ${topic}`;
-    } else if (option === "B") {
-      return `A common misconception about ${topic}`;
-    } else if (option === "C") {
-      return `Another accurate statement about ${topic}`;
-    } else {
-      return `A completely incorrect statement about ${topic}`;
-    }
-  }
-
   private generateInitialCode(topic: string, language: string): string {
-    if (language.toLowerCase() === "javascript") {
-      return `// Write your ${topic} code here\nfunction challenge() {\n  // Your code here\n}\n`;
-    } else if (language.toLowerCase() === "python") {
-      return `# Write your ${topic} code here\ndef challenge():\n    # Your code here\n    pass\n`;
+    if (language === 'javascript') {
+      return `// Complete the function for ${topic}
+function implement${topic.replace(/\s+/g, '')}() {
+  // Your code here
+  
+  // Return your result
+  return null;
+}`;
+    } else if (language === 'python') {
+      return `# Complete the function for ${topic}
+def implement_${topic.replace(/\s+/g, '_').toLowerCase()}():
+    # Your code here
+    
+    # Return your result
+    return None`;
+    } else {
+      return `// Write your code for ${topic} here`;
     }
-    return `// Write your ${topic} code here`;
   }
 
+  /**
+   * Get the appropriate filename for a language
+   */
   private getFilenameForLanguage(language: string): string {
-    if (language.toLowerCase() === "javascript") {
-      return "script.js";
-    } else if (language.toLowerCase() === "python") {
-      return "script.py";
-    } else if (language.toLowerCase() === "html") {
-      return "index.html";
-    } else if (language.toLowerCase() === "css") {
-      return "styles.css";
+    if (language === 'javascript') {
+      return 'script.js';
+    } else if (language === 'python') {
+      return 'main.py';
+    } else if (language === 'html') {
+      return 'index.html';
+    } else if (language === 'css') {
+      return 'styles.css';
+    } else {
+      return 'code.txt';
     }
-    return "code.txt";
   }
 
+  /**
+   * Generate tests for a challenge
+   */
   private generateTests(topic: string, language: string): Array<{id: string; name: string; description: string; validation: string; type: 'regex' | 'js'}> {
-    if (language.toLowerCase() === "javascript") {
+    if (language === 'javascript') {
       return [
         {
           id: uuidv4(),
-          name: "Function exists",
-          description: "Checks if the challenge function exists",
-          validation: "function\\s+challenge\\s*\\(\\)",
+          name: "Variable declaration",
+          description: "Checks if the necessary variables are declared",
+          validation: "# Check if variables exist",
           type: "regex"
         },
         {
           id: uuidv4(),
-          name: "Basic functionality",
-          description: "Checks if the function performs the basic task",
-          validation: "// This would be real validation logic in a production system",
-          type: "js"
-        }
-      ];
-    } else if (language.toLowerCase() === "python") {
-      return [
-        {
-          id: uuidv4(),
-          name: "Function exists",
-          description: "Checks if the challenge function exists",
-          validation: "def\\s+challenge\\s*\\(\\)",
-          type: "regex"
-        },
-        {
-          id: uuidv4(),
-          name: "Basic functionality",
+          name: "Function implementation",
           description: "Checks if the function performs the basic task",
           validation: "# This would be real validation logic in a production system",
           type: "js"

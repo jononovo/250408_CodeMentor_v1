@@ -107,6 +107,9 @@ export default function LessonSlides({
       // Helper JS functions to make interactive elements work
       const helperJs = `
       <script>
+        // Initialize global variables
+        window.selectedOption = '';
+        
         // Define global helper functions for interactive elements
         window.toggleHint = function() {
           const hintContent = document.getElementById('hint-content');
@@ -142,6 +145,10 @@ export default function LessonSlides({
         };
 
         window.selectOption = function(option) {
+          // Define selectedOption on window if it doesn't exist
+          if (!('selectedOption' in window)) {
+            window.selectedOption = '';
+          }
           window.selectedOption = option;
           const checkAnswerBtn = document.getElementById('check-answer');
           if (checkAnswerBtn) checkAnswerBtn.disabled = false;
@@ -151,10 +158,39 @@ export default function LessonSlides({
           if (!window.selectedOption) return;
           
           // For demo purposes, we'll consider A as the correct answer
+          const optionA = document.querySelector('.quiz-option[data-option="A"]');
+          const optionB = document.querySelector('.quiz-option[data-option="B"]');
+          const optionC = document.querySelector('.quiz-option[data-option="C"]');
+          const optionD = document.querySelector('.quiz-option[data-option="D"]');
+          
+          // Reset all options first
+          [optionA, optionB, optionC, optionD].forEach(opt => {
+            if (opt) {
+              opt.classList.remove('correct', 'incorrect');
+            }
+          });
+          
+          // Mark selected option using variable to avoid template literal issues
+          let selectedOption = null;
+          if (window.selectedOption) {
+            selectedOption = document.querySelector('.quiz-option[data-option="' + window.selectedOption + '"]');
+          }
+          
           if (window.selectedOption === 'A') {
+            // Correct answer
+            if (selectedOption) {
+              selectedOption.classList.add('correct');
+            }
             document.getElementById('feedback-correct').style.display = 'flex';
             document.getElementById('feedback-incorrect').style.display = 'none';
           } else {
+            // Incorrect answer
+            if (selectedOption) {
+              selectedOption.classList.add('incorrect');
+            }
+            if (optionA) {
+              optionA.classList.add('correct'); // Show correct answer
+            }
             document.getElementById('feedback-incorrect').style.display = 'flex';
             document.getElementById('feedback-correct').style.display = 'none';
           }

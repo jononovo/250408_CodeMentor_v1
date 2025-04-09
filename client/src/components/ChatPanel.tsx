@@ -17,6 +17,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [agentPersona, setAgentPersona] = useState<'mumu' | 'baloo'>('mumu');
   
   const { chat, messages, sendMessage, isLoading } = useAI(lessonId);
 
@@ -30,7 +31,13 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !isLoading) {
-      sendMessage(message);
+      // Add persona context to the beginning of the message to guide the AI's response style
+      const contextualMessage = 
+        agentPersona === 'mumu' 
+          ? `[As Mumu the Coding Ninja 🐯] ${message}`
+          : `[As Baloo the Lesson Creator 🐻] ${message}`;
+          
+      sendMessage(contextualMessage);
       setMessage('');
     }
   };
@@ -192,9 +199,21 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
           <div className="bg-primary/40 text-white p-3 flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2">
-                <span className="text-primary text-xl">🐯</span>
+                <span className="text-primary text-xl">{agentPersona === 'mumu' ? '🐯' : '🐻'}</span>
               </div>
-              <h3 className="font-display font-medium">Mumu the Coding Tiger</h3>
+              <div>
+                <select
+                  value={agentPersona}
+                  onChange={(e) => setAgentPersona(e.target.value as 'mumu' | 'baloo')}
+                  className="text-primary text-xs font-medium px-1 py-0.5 mb-0.5 rounded-md bg-white/80 cursor-pointer border-none outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="mumu">Mumu the Coding Ninja</option>
+                  <option value="baloo">Baloo the Lesson Creator</option>
+                </select>
+                <h3 className="font-display font-medium leading-tight">
+                  {agentPersona === 'mumu' ? 'Mumu the Coding Ninja' : 'Baloo the Lesson Creator'}
+                </h3>
+              </div>
             </div>
             <div className="flex">
               <button 
@@ -210,8 +229,14 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-center text-gray-500">
                 <div>
-                  <p>Welcome to CodeMumu!</p>
-                  <p className="text-sm mt-2">Ask me to create a new coding lesson for you, or help with your current challenge.</p>
+                  <p>{agentPersona === 'mumu' 
+                      ? "Welcome to Mumu the Coding Ninja! 🐯" 
+                      : "Welcome to Baloo the Lesson Creator! 🐻"}</p>
+                  <p className="text-sm mt-2">
+                    {agentPersona === 'mumu' 
+                      ? "Ask me to help with coding challenges or explain programming concepts." 
+                      : "Ask me to create or improve interactive coding lessons for your students."}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -220,7 +245,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                   {msg.role !== 'user' && (
                     <div className="flex-shrink-0 mr-3">
                       <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-primary text-xl">🐯</span>
+                        <span className="text-primary text-xl">{agentPersona === 'mumu' ? '🐯' : '🐻'}</span>
                       </div>
                     </div>
                   )}
@@ -251,7 +276,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
               <div className="flex items-start">
                 <div className="flex-shrink-0 mr-3">
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="text-primary text-xl">🐯</span>
+                    <span className="text-primary text-xl">{agentPersona === 'mumu' ? '🐯' : '🐻'}</span>
                   </div>
                 </div>
                 <div className="bg-gray-100 rounded-lg p-3 max-w-[85%]">
@@ -271,75 +296,160 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
               <div className="mb-2 py-1 bg-gray-50 rounded-md">
                 {(!lessonId || messages.length === 0) && (
                   <div className="flex flex-wrap px-1">
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Create a new lesson about ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Create a new lesson
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Explain the concept of ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Explain a concept
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("How can I use this platform to ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      How to use this platform
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Suggest a coding challenge for ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Get a coding challenge
-                    </button>
+                    {/* Baloo-specific suggestions */}
+                    {agentPersona === 'baloo' && (
+                      <>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Create a new lesson about ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Create a new lesson
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Generate an interactive lesson with lots of challenges on ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Interactive lesson
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Create a curriculum for learning ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Create curriculum
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("How to create more engaging lessons with ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Teaching tips
+                        </button>
+                      </>
+                    )}
+
+                    {/* Mumu-specific suggestions */}
+                    {agentPersona === 'mumu' && (
+                      <>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Explain the concept of ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Explain a concept
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Help me debug this code: ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Debug help
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("How can I use this platform to ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          How to use this platform
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Suggest a coding challenge for ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Get a coding challenge
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 
                 {/* Action buttons for when in a lesson context */}
                 {lessonId && messages.length > 0 && (
                   <div className="flex flex-wrap px-1">
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Update this slide with more interactive elements ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Improve this slide
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Help me understand this code: ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Explain this code
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Give me a hint for this challenge ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Get a hint
-                    </button>
+                    {/* Baloo-specific lesson suggestions */}
+                    {agentPersona === 'baloo' && (
+                      <>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Update this slide with more interactive elements ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Improve this slide
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Add a more challenging exercise to this slide ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Add challenge
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Create a new slide after this one about ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Add new slide
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Mumu-specific lesson suggestions */}
+                    {agentPersona === 'mumu' && (
+                      <>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Help me understand this code: ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Explain this code
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Give me a hint for this challenge ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Get a hint
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("What's a real-world example of this concept? ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Real-world example
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -350,7 +460,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                 <textarea 
                   ref={inputRef}
                   className="flex-1 border border-gray-300 rounded-l-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[60px] resize-none" 
-                  placeholder="Ask Mumu for help..." 
+                  placeholder={agentPersona === 'mumu' ? "Ask Mumu for coding help..." : "Ask Baloo to create a lesson..."} 
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   disabled={isLoading}
