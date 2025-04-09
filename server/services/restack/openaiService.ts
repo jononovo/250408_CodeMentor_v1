@@ -471,54 +471,635 @@ When the user asks for changes to the lesson or requests new content, use these 
   }
 
   private generateIntroContent(topic: string, language: string): string {
-    // Use HTML format by default
+    // Generate colorful, interactive HTML by default
     return `<div class="lesson-intro">
-    <h1>Introduction to ${topic}</h1>
-    <p>${this.getDefinitionForTopic(topic)}</p>
+    <h1 class="animated-title">Introduction to ${topic}</h1>
+    <div class="colorful-card">
+      <p>${this.getDefinitionForTopic(topic)}</p>
+    </div>
+    <div class="interactive-element">
+      <button class="reveal-button" onclick="document.getElementById('extra-info').style.display='block'">Learn More</button>
+      <div id="extra-info" class="hidden-content">
+        <h3>Why ${topic} is Important</h3>
+        <p>Understanding ${topic} is a foundational skill for programming in ${language}.</p>
+      </div>
+    </div>
+    <style>
+      .animated-title {
+        color: #4a6bff;
+        animation: fadeIn 1s ease-in-out;
+      }
+      .colorful-card {
+        background: linear-gradient(135deg, #f5f7ff 0%, #e3e9ff 100%);
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-left: 5px solid #4a6bff;
+      }
+      .interactive-element {
+        margin: 20px 0;
+      }
+      .reveal-button {
+        background-color: #4a6bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+      .reveal-button:hover {
+        background-color: #3451d1;
+      }
+      .hidden-content {
+        display: none;
+        padding: 15px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        margin-top: 10px;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
     </div>`;
   }
 
   private generateConceptsContent(topic: string, language: string): string {
-    // Use HTML format by default
+    // Generate colorful, interactive HTML by default
     return `<div class="lesson-concepts">
-    <h1>Core Concepts of ${topic}</h1>
-    <p>${this.getUsageForTopic(topic)}</p>
+    <h1 class="concept-title">Core Concepts of ${topic}</h1>
     
-    <h2>Best Practices</h2>
-    <p>${this.getBestPracticesForTopic(topic)}</p>
-    
-    <div class="code-example">
-      <pre><code class="${language.toLowerCase()}">${this.getExampleCodeForTopic(topic, language)}</code></pre>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <h3>Basic Usage</h3>
+        <p>${this.getUsageForTopic(topic)}</p>
+      </div>
+      
+      <div class="concept-card">
+        <h3>Best Practices</h3>
+        <p>${this.getBestPracticesForTopic(topic)}</p>
+      </div>
     </div>
+    
+    <h2 class="code-title">Example Code</h2>
+    <div class="code-container">
+      <pre><code class="${language.toLowerCase()}">${this.getExampleCodeForTopic(topic, language)}</code></pre>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText(\`${this.getExampleCodeForTopic(topic, language)}\`)">Copy Code</button>
+    </div>
+    
+    <div class="tabs-container">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab(event, 'tab1')">Learn More</button>
+        <button class="tab-btn" onclick="showTab(event, 'tab2')">Common Mistakes</button>
+        <button class="tab-btn" onclick="showTab(event, 'tab3')">Tips</button>
+      </div>
+      
+      <div id="tab1" class="tab-content active">
+        <p>When using ${topic} in ${language}, remember to follow proper syntax and structure.</p>
+      </div>
+      
+      <div id="tab2" class="tab-content">
+        <p>A common mistake with ${topic} is forgetting to initialize variables properly.</p>
+      </div>
+      
+      <div id="tab3" class="tab-content">
+        <p>Try using ${topic} in small examples first before implementing in larger projects.</p>
+      </div>
+    </div>
+    
+    <style>
+      .concept-title {
+        color: #4a6bff;
+        margin-bottom: 25px;
+      }
+      .concept-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .concept-card {
+        background-color: #f8f9ff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        border-top: 4px solid #4a6bff;
+        transition: transform 0.3s ease;
+      }
+      .concept-card:hover {
+        transform: translateY(-5px);
+      }
+      .code-title {
+        color: #4a6bff;
+        margin-top: 30px;
+      }
+      .code-container {
+        position: relative;
+        background-color: #2d2d2d;
+        border-radius: 8px;
+        margin: 20px 0;
+        overflow: hidden;
+      }
+      .code-container pre {
+        padding: 20px;
+        margin: 0;
+        overflow-x: auto;
+      }
+      .code-container code {
+        color: #f8f8f2;
+        font-family: 'Courier New', monospace;
+      }
+      .copy-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(255,255,255,0.1);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .copy-btn:hover {
+        background-color: rgba(255,255,255,0.2);
+      }
+      .tabs-container {
+        margin-top: 30px;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 2px solid #e1e4e8;
+      }
+      .tab-btn {
+        padding: 10px 20px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .tab-btn.active {
+        border-bottom: 2px solid #4a6bff;
+        color: #4a6bff;
+        font-weight: bold;
+      }
+      .tab-content {
+        display: none;
+        padding: 15px;
+        background-color: #f9f9ff;
+        border-radius: 0 0 8px 8px;
+      }
+      .tab-content.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    </style>
+    <script>
+      function showTab(evt, tabId) {
+        // Hide all tab content
+        var tabContents = document.getElementsByClassName("tab-content");
+        for (var i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
+        }
+        
+        // Remove active class from all tab buttons
+        var tabBtns = document.getElementsByClassName("tab-btn");
+        for (var i = 0; i < tabBtns.length; i++) {
+          tabBtns[i].classList.remove("active");
+        }
+        
+        // Show the selected tab and add active class to the button
+        document.getElementById(tabId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+      }
+    </script>
     </div>`;
   }
 
   private generateChallengeContent(topic: string, language: string): string {
-    // Use HTML format by default
+    // Generate colorful, interactive HTML by default
     return `<div class="lesson-challenge">
-    <h1>Practice ${topic}</h1>
-    <p>${this.getChallengeDescriptionForTopic(topic, language)}</p>
+    <h1 class="challenge-title">Practice ${topic}</h1>
     
-    <div class="hint-box">
-      <h2>Hint</h2>
-      <p>${this.getHintForTopic(topic, language)}</p>
+    <div class="challenge-card">
+      <div class="challenge-header">
+        <span class="challenge-badge">CHALLENGE</span>
+        <h2>Implement Your Knowledge</h2>
+      </div>
+      
+      <p class="challenge-description">${this.getChallengeDescriptionForTopic(topic, language)}</p>
+      
+      <div class="expandable-hint">
+        <button class="hint-toggle" onclick="toggleHint()">
+          <span class="hint-icon">💡</span> Show Hint
+        </button>
+        
+        <div id="hint-content" class="hint-content">
+          <p>${this.getHintForTopic(topic, language)}</p>
+        </div>
+      </div>
     </div>
+    
+    <div class="progress-tracker">
+      <div class="progress-step completed">
+        <div class="step-number">1</div>
+        <div class="step-label">Learn</div>
+      </div>
+      <div class="progress-connector"></div>
+      <div class="progress-step active">
+        <div class="step-number">2</div>
+        <div class="step-label">Practice</div>
+      </div>
+      <div class="progress-connector"></div>
+      <div class="progress-step">
+        <div class="step-number">3</div>
+        <div class="step-label">Master</div>
+      </div>
+    </div>
+    
+    <style>
+      .challenge-title {
+        color: #ff6b4a;
+        margin-bottom: 25px;
+        position: relative;
+      }
+      .challenge-title::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: -10px;
+        width: 50px;
+        height: 4px;
+        background-color: #ff6b4a;
+      }
+      .challenge-card {
+        background-color: #fffaf8;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 8px 16px rgba(255, 107, 74, 0.1);
+        margin: 30px 0;
+        border-left: 5px solid #ff6b4a;
+      }
+      .challenge-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+      .challenge-badge {
+        background-color: #ff6b4a;
+        color: white;
+        font-size: 12px;
+        font-weight: bold;
+        padding: 5px 10px;
+        border-radius: 50px;
+        margin-right: 15px;
+      }
+      .challenge-description {
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+      .expandable-hint {
+        margin-top: 20px;
+      }
+      .hint-toggle {
+        background-color: transparent;
+        color: #ff6b4a;
+        border: 2px solid #ff6b4a;
+        border-radius: 6px;
+        padding: 8px 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        transition: all 0.3s ease;
+        font-weight: 500;
+      }
+      .hint-toggle:hover {
+        background-color: #ff6b4a;
+        color: white;
+      }
+      .hint-icon {
+        margin-right: 8px;
+        font-size: 18px;
+      }
+      .hint-content {
+        display: none;
+        background-color: #fff8f6;
+        border-radius: 6px;
+        padding: 15px;
+        margin-top: 15px;
+        border: 1px solid #ffe1da;
+      }
+      .progress-tracker {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 40px;
+        padding: 0 10%;
+      }
+      .progress-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
+      .step-number {
+        width: 36px;
+        height: 36px;
+        background-color: #e1e4e8;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+      .progress-step.completed .step-number {
+        background-color: #4aff9e;
+        color: white;
+      }
+      .progress-step.active .step-number {
+        background-color: #ff6b4a;
+        color: white;
+      }
+      .step-label {
+        font-size: 14px;
+        color: #6c757d;
+      }
+      .progress-step.active .step-label {
+        color: #ff6b4a;
+        font-weight: 500;
+      }
+      .progress-connector {
+        height: 3px;
+        flex-grow: 1;
+        background-color: #e1e4e8;
+        margin: 0 10px;
+        position: relative;
+        top: -12px;
+      }
+    </style>
+    <script>
+      function toggleHint() {
+        const hintContent = document.getElementById('hint-content');
+        const hintButton = document.querySelector('.hint-toggle');
+        
+        if (hintContent.style.display === 'block') {
+          hintContent.style.display = 'none';
+          hintButton.innerHTML = '<span class="hint-icon">💡</span> Show Hint';
+        } else {
+          hintContent.style.display = 'block';
+          hintButton.innerHTML = '<span class="hint-icon">💡</span> Hide Hint';
+        }
+      }
+    </script>
     </div>`;
   }
 
   private generateQuizContent(topic: string, language: string): string {
-    // Use HTML format by default
+    // Generate colorful, interactive HTML by default
     return `<div class="lesson-quiz">
-    <h1>Test Your Knowledge</h1>
-    <div class="quiz-question">
-      <h2>Which of the following is true about ${topic}?</h2>
-      <ul class="quiz-options">
-        <li>A. ${this.getQuizAnswerForTopic(topic, "A")}</li>
-        <li>B. ${this.getQuizAnswerForTopic(topic, "B")}</li>
-        <li>C. ${this.getQuizAnswerForTopic(topic, "C")}</li>
-        <li>D. ${this.getQuizAnswerForTopic(topic, "D")}</li>
-      </ul>
+    <h1 class="quiz-title">Test Your Knowledge</h1>
+    
+    <div class="quiz-container">
+      <div class="quiz-progress">
+        <div class="quiz-progress-bar"></div>
+        <div class="quiz-progress-text">Question 1/4</div>
+      </div>
+      
+      <div class="quiz-question">
+        <h2>Which of the following is true about ${topic}?</h2>
+        
+        <div class="quiz-options">
+          <label class="quiz-option">
+            <input type="radio" name="q1" value="A" onclick="selectOption('A')">
+            <span class="option-text">A. ${this.getQuizAnswerForTopic(topic, "A")}</span>
+          </label>
+          
+          <label class="quiz-option">
+            <input type="radio" name="q1" value="B" onclick="selectOption('B')">
+            <span class="option-text">B. ${this.getQuizAnswerForTopic(topic, "B")}</span>
+          </label>
+          
+          <label class="quiz-option">
+            <input type="radio" name="q1" value="C" onclick="selectOption('C')">
+            <span class="option-text">C. ${this.getQuizAnswerForTopic(topic, "C")}</span>
+          </label>
+          
+          <label class="quiz-option">
+            <input type="radio" name="q1" value="D" onclick="selectOption('D')">
+            <span class="option-text">D. ${this.getQuizAnswerForTopic(topic, "D")}</span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="quiz-feedback" id="feedback-correct">
+        <div class="feedback-icon">✓</div>
+        <div class="feedback-message">
+          <h3>Correct!</h3>
+          <p>Great job! You've understood the concept correctly.</p>
+        </div>
+      </div>
+      
+      <div class="quiz-feedback" id="feedback-incorrect">
+        <div class="feedback-icon">✗</div>
+        <div class="feedback-message">
+          <h3>Not quite right</h3>
+          <p>Think about how ${topic} works in ${language}.</p>
+        </div>
+      </div>
+      
+      <div class="quiz-actions">
+        <button class="quiz-button" id="check-answer" onclick="checkAnswer()">Check Answer</button>
+        <button class="quiz-button next-button" id="next-question" onclick="nextQuestion()">Next Question</button>
+      </div>
     </div>
+    
+    <style>
+      .quiz-title {
+        color: #6c5ce7;
+        margin-bottom: 25px;
+        text-align: center;
+      }
+      .quiz-container {
+        background-color: #f8f7ff;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 8px 20px rgba(108, 92, 231, 0.1);
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .quiz-progress {
+        margin-bottom: 25px;
+        position: relative;
+      }
+      .quiz-progress-bar {
+        height: 8px;
+        width: 25%;
+        background-color: #6c5ce7;
+        border-radius: 4px;
+      }
+      .quiz-progress-text {
+        position: absolute;
+        right: 0;
+        top: -5px;
+        font-size: 14px;
+        color: #6c5ce7;
+      }
+      .quiz-question h2 {
+        color: #2d3436;
+        margin-bottom: 20px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .quiz-options {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 25px;
+      }
+      .quiz-option {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        background-color: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .quiz-option:hover {
+        border-color: #6c5ce7;
+      }
+      .quiz-option input[type="radio"] {
+        margin-right: 12px;
+        accent-color: #6c5ce7;
+        width: 18px;
+        height: 18px;
+      }
+      .option-text {
+        font-size: 16px;
+      }
+      .quiz-feedback {
+        display: none;
+        background-color: #f0fff4;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 20px 0;
+        display: flex;
+        align-items: center;
+      }
+      #feedback-correct {
+        background-color: #f0fff4;
+        border-left: 4px solid #38c172;
+        display: none;
+      }
+      #feedback-incorrect {
+        background-color: #fff5f5;
+        border-left: 4px solid #e53e3e;
+        display: none;
+      }
+      .feedback-icon {
+        font-size: 24px;
+        margin-right: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+      }
+      #feedback-correct .feedback-icon {
+        color: #38c172;
+        background-color: rgba(56, 193, 114, 0.1);
+      }
+      #feedback-incorrect .feedback-icon {
+        color: #e53e3e;
+        background-color: rgba(229, 62, 62, 0.1);
+      }
+      .feedback-message h3 {
+        margin: 0 0 5px 0;
+        font-size: 16px;
+      }
+      .feedback-message p {
+        margin: 0;
+        font-size: 14px;
+      }
+      .quiz-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 25px;
+      }
+      .quiz-button {
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      #check-answer {
+        background-color: #6c5ce7;
+        color: white;
+        border: none;
+      }
+      #check-answer:hover {
+        background-color: #5649c0;
+      }
+      .next-button {
+        background-color: transparent;
+        color: #6c5ce7;
+        border: 2px solid #6c5ce7;
+        display: none;
+      }
+      .next-button:hover {
+        background-color: #f3f0ff;
+      }
+    </style>
+    <script>
+      let selectedOption = '';
+      
+      function selectOption(option) {
+        selectedOption = option;
+        document.getElementById('check-answer').disabled = false;
+      }
+      
+      function checkAnswer() {
+        if (!selectedOption) return;
+        
+        // Assuming A is the correct answer for this example
+        if (selectedOption === 'A') {
+          document.getElementById('feedback-correct').style.display = 'flex';
+          document.getElementById('feedback-incorrect').style.display = 'none';
+        } else {
+          document.getElementById('feedback-incorrect').style.display = 'flex';
+          document.getElementById('feedback-correct').style.display = 'none';
+        }
+        
+        document.getElementById('check-answer').style.display = 'none';
+        document.getElementById('next-question').style.display = 'block';
+      }
+      
+      function nextQuestion() {
+        // In a real implementation, this would show the next question
+        alert('This would navigate to the next question in a full implementation');
+      }
+      
+      // Initialize
+      document.getElementById('check-answer').disabled = true;
+      document.getElementById('next-question').style.display = 'none';
+      document.getElementById('feedback-correct').style.display = 'none';
+      document.getElementById('feedback-incorrect').style.display = 'none';
+    </script>
     </div>`;
   }
 
