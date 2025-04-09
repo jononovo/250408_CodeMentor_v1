@@ -21,19 +21,38 @@ export const runTests = async (
   tests: TestCase[],
   consoleOutput: string[] = []
 ): Promise<TestResult[]> => {
+  // Clean code of script tags and language identifiers for testing
+  let cleanedCode = code;
+  
+  // First remove script tags
+  if (code.includes('<script>') || code.includes('</script>')) {
+    cleanedCode = code
+      .replace(/<script>/g, '')
+      .replace(/<\/script>/g, '')
+      .replace(/<script type="text\/javascript">/g, '')
+      .replace(/<script language="javascript">/g, '');
+  }
+  
+  // Then remove language identifiers that might be at the beginning of the code
+  cleanedCode = cleanedCode.trim();
+  if (/^(javascript|js)(\s|$)/.test(cleanedCode)) {
+    // Remove the word 'javascript' or 'js' if it's the first word in the code
+    cleanedCode = cleanedCode.replace(/^(javascript|js)(\s|$)/, '').trim();
+  }
+
   return tests.map((test) => {
     try {
       let passed = false;
       
       if (test.type === 'regex') {
-        // Run regex validation against the code
+        // Run regex validation against the cleaned code
         const regex = new RegExp(test.validation);
-        passed = regex.test(code);
+        passed = regex.test(cleanedCode);
       } else if (test.type === 'js') {
         // Create a function that evaluates the test validation code
         // This allows complex validation like checking console output
         const testFn = new Function('code', 'consoleOutput', test.validation);
-        passed = testFn(code, consoleOutput);
+        passed = testFn(cleanedCode, consoleOutput);
       }
 
       return {

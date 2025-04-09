@@ -30,12 +30,35 @@ export const runCode = (
       consoleOutputs.push(`Error: ${message}`);
       onConsoleError(message);
     };
+
+    // Remove script tags and language identifiers from code if they exist
+    let cleanedCode = code;
+    
+    // First remove script tags
+    if (code.includes('<script>') || code.includes('</script>')) {
+      cleanedCode = code
+        .replace(/<script>/g, '')
+        .replace(/<\/script>/g, '')
+        .replace(/<script type="text\/javascript">/g, '')
+        .replace(/<script language="javascript">/g, '');
+      
+      // Log what we're doing so the user understands
+      console.log("Removing script tags before execution...");
+    }
+    
+    // Then remove language identifiers that might be at the beginning of the code
+    cleanedCode = cleanedCode.trim();
+    if (/^(javascript|js)(\s|$)/.test(cleanedCode)) {
+      // Remove the word 'javascript' or 'js' if it's the first word in the code
+      cleanedCode = cleanedCode.replace(/^(javascript|js)(\s|$)/, '').trim();
+      console.log("Removing language identifier before execution...");
+    }
     
     // Execute the code in a try-catch block
     let error: string | null = null;
     try {
       // Using Function constructor to evaluate the code
-      Function(code)();
+      Function(cleanedCode)();
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       error = errorMessage;

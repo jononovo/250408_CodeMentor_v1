@@ -49,6 +49,24 @@ export default function CodeEditor({
     setShowConsole(true);
     setConsoleOutput(["// Running code..."]);
     
+    // Check if code contains script tags and warn the user
+    if (code.includes('<script>') || code.includes('</script>')) {
+      setConsoleOutput(prev => [
+        ...prev,
+        "// Note: <script> tags detected. They will be automatically removed during execution.",
+        "// The code will still run normally - this is just informational."
+      ]);
+    }
+    
+    // Check if code begins with language identifier
+    if (/^(javascript|js)(\s|$)/.test(code.trim())) {
+      setConsoleOutput(prev => [
+        ...prev,
+        "// Note: 'javascript' or 'js' language identifier detected at the beginning of the code.",
+        "// This will be automatically removed during execution."
+      ]);
+    }
+    
     try {
       // Run the code and capture console output
       const { output } = await runCode(
