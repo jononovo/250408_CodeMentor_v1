@@ -32,6 +32,9 @@ interface LessonSlidesProps {
     passed: boolean;
     message?: string;
   }[];
+  lessonStyle?: string;
+  lessonCss?: string;
+  lessonJs?: string;
 }
 
 export default function LessonSlides({ 
@@ -40,7 +43,10 @@ export default function LessonSlides({
   currentSlideIndex, 
   onSlideChange,
   format = 'markdown',
-  testResults = []
+  testResults = [],
+  lessonStyle = '',
+  lessonCss = '',
+  lessonJs = ''
 }: LessonSlidesProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [timeLeft, setTimeLeft] = useState("15 min left");
@@ -90,8 +96,12 @@ export default function LessonSlides({
     
     // If using HTML format, render the HTML content directly
     if (format === 'html') {
-      // Create a style tag for CSS content if available
-      const cssStyle = currentSlide.cssContent ? 
+      // Create a style tag for centralized lesson CSS if available
+      const lessonCssStyle = lessonCss ? 
+        `<style>${lessonCss}</style>` : '';
+      
+      // Create a style tag for slide-specific CSS if available
+      const slideCssStyle = currentSlide.cssContent ? 
         `<style>${currentSlide.cssContent}</style>` : '';
       
       // Helper JS functions to make interactive elements work
@@ -173,16 +183,30 @@ export default function LessonSlides({
       </script>
       `;
       
-      // Create a script tag for JS content if available
-      const jsScript = currentSlide.jsContent ? 
+      // Create a script tag for centralized lesson JS if available
+      const lessonJsScript = lessonJs ? 
+        `<script>${lessonJs}</script>` : '';
+      
+      // Create a script tag for slide-specific JS if available
+      const slideJsScript = currentSlide.jsContent ? 
         `<script>${currentSlide.jsContent}</script>` : '';
       
-      // Combine HTML, CSS, helper JS, and custom JS
-      const fullHtml = `${cssStyle}${content}${helperJs}${jsScript}`;
+      // Combine HTML, CSS (lesson and slide), helper JS, and JS (lesson and slide)
+      // Order matters - lesson CSS first, then slide CSS to allow overrides
+      // Same for JS - lesson JS first, then slide JS
+      const fullHtml = `
+        ${lessonCssStyle}
+        ${slideCssStyle}
+        ${content}
+        ${helperJs}
+        ${lessonJsScript}
+        ${slideJsScript}
+      `;
       
       // Use dangerouslySetInnerHTML to render the HTML content
       return (
-        <div className="html-content" dangerouslySetInnerHTML={{ __html: fullHtml }} />
+        <div className={`html-content ${lessonStyle ? `lesson-style-${lessonStyle}` : ''}`} 
+             dangerouslySetInnerHTML={{ __html: fullHtml }} />
       );
     }
     

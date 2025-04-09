@@ -8,6 +8,7 @@ import ChatPanel from "@/components/ChatPanel";
 import { parseTests, TestResult } from "@/lib/codeTests";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { Lesson as LessonType } from "@/types";
 
 export default function Lesson() {
   const { id } = useParams();
@@ -17,7 +18,7 @@ export default function Lesson() {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
 
   // Fetch the lesson
-  const { data: lesson, isLoading } = useQuery({
+  const { data: lesson, isLoading } = useQuery<LessonType>({
     queryKey: [`/api/lessons/${id}`],
   });
 
@@ -40,7 +41,7 @@ export default function Lesson() {
       toast({
         title: "All tests passed! 🎉",
         description: "Great job! You can move to the next slide.",
-        variant: "success"
+        variant: "default"
       });
     }
   };
@@ -94,6 +95,9 @@ export default function Lesson() {
         onSlideChange={setCurrentSlideIndex}
         format={lesson.format || 'markdown'}
         testResults={testResults}
+        lessonStyle={lesson.styleName || ''}
+        lessonCss={lesson.cssContent || ''}
+        lessonJs={lesson.jsContent || ''}
       />
       
       {/* Code Editor */}

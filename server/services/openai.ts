@@ -113,19 +113,32 @@ export async function generateLesson(
   topic: string,
   difficulty: string = "beginner",
   format: string = "html",
-  description?: string
+  description?: string,
+  style?: string
 ) {
   try {
     const prompt = `Create an interactive coding lesson for teenagers about ${topic}.
     
 Difficulty level: ${difficulty}
 Format: ${format}
+${style ? `Style: ${style}` : ''}
 ${description ? `Description: ${description}` : ""}
 
 The lesson should be engaging, informative, and include challenges that build upon the concepts taught.
 ${format === 'html' 
   ? 'For HTML format, each slide should include custom HTML content, and may also include CSS and JavaScript to create interactive elements.'
   : 'For Markdown format, use standard markdown formatting for content.'}
+${style ? `
+Style Guidelines for "${style}":
+${style === 'brown-markdown' 
+  ? '- Use a relaxed, earthy tone with straightforward explanations\n- Focus on readability and clarity over fancy interactions\n- Include practical examples and clear explanations'
+  : style === 'neon-racer'
+  ? '- Use an energetic, exciting tone with vibrant language\n- Focus on gamification elements and make learning feel like racing through concepts\n- Use playful analogies and high-energy explanations'
+  : style === 'interaction-galore' 
+  ? '- Create highly interactive content with many clickable elements\n- Design content that requires frequent user interaction\n- Include tabs, accordions, and interactive demonstrations wherever possible'
+  : style === 'practical-project'
+  ? '- Structure content as a progressive project building exercise\n- Each slide should build upon previous slides\n- Focus on creating something tangible and seeing results incrementally'
+  : ''}` : ''}
 
 Format the response as a JSON object with the following structure:
 {

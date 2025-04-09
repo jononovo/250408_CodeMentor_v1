@@ -13,6 +13,9 @@ export const lessons = pgTable("lessons", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   estimatedTime: text("estimated_time"),
+  styleName: text("style_name"), // Brown Markdown, Neon Racer, etc.
+  cssContent: text("css_content"), // Shared CSS across all slides
+  jsContent: text("js_content"), // Shared JavaScript across all slides
 });
 
 export const insertLessonSchema = createInsertSchema(lessons).omit({

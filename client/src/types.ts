@@ -9,6 +9,9 @@ export interface Lesson {
   updatedAt: number;
   slides: Slide[];
   estimatedTime?: string;
+  styleName?: string;
+  cssContent?: string;
+  jsContent?: string;
 }
 
 export interface Slide {
