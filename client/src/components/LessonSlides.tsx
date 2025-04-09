@@ -94,12 +94,91 @@ export default function LessonSlides({
       const cssStyle = currentSlide.cssContent ? 
         `<style>${currentSlide.cssContent}</style>` : '';
       
+      // Helper JS functions to make interactive elements work
+      const helperJs = `
+      <script>
+        // Define global helper functions for interactive elements
+        window.toggleHint = function() {
+          const hintContent = document.getElementById('hint-content');
+          const hintButton = document.querySelector('.hint-toggle');
+          
+          if (hintContent.style.display === 'block') {
+            hintContent.style.display = 'none';
+            hintButton.innerHTML = '<span class="hint-icon">💡</span> Show Hint';
+          } else {
+            hintContent.style.display = 'block';
+            hintButton.innerHTML = '<span class="hint-icon">💡</span> Hide Hint';
+          }
+        };
+
+        window.showTab = function(evt, tabId) {
+          // Hide all tab content
+          var tabContents = document.getElementsByClassName("tab-content");
+          for (var i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove("active");
+          }
+          
+          // Remove active class from all tab buttons
+          var tabBtns = document.getElementsByClassName("tab-btn");
+          for (var i = 0; i < tabBtns.length; i++) {
+            tabBtns[i].classList.remove("active");
+          }
+          
+          // Show the selected tab and add active class to the button
+          if (document.getElementById(tabId)) {
+            document.getElementById(tabId).classList.add("active");
+            evt.currentTarget.classList.add("active");
+          }
+        };
+
+        window.selectOption = function(option) {
+          window.selectedOption = option;
+          const checkAnswerBtn = document.getElementById('check-answer');
+          if (checkAnswerBtn) checkAnswerBtn.disabled = false;
+        };
+
+        window.checkAnswer = function() {
+          if (!window.selectedOption) return;
+          
+          // For demo purposes, we'll consider A as the correct answer
+          if (window.selectedOption === 'A') {
+            document.getElementById('feedback-correct').style.display = 'flex';
+            document.getElementById('feedback-incorrect').style.display = 'none';
+          } else {
+            document.getElementById('feedback-incorrect').style.display = 'flex';
+            document.getElementById('feedback-correct').style.display = 'none';
+          }
+          
+          document.getElementById('check-answer').style.display = 'none';
+          document.getElementById('next-question').style.display = 'block';
+        };
+
+        window.nextQuestion = function() {
+          alert('This would navigate to the next question in a full implementation');
+        };
+
+        // Initialize quiz elements if they exist
+        if (document.getElementById('check-answer')) {
+          document.getElementById('check-answer').disabled = true;
+        }
+        if (document.getElementById('next-question')) {
+          document.getElementById('next-question').style.display = 'none';
+        }
+        if (document.getElementById('feedback-correct')) {
+          document.getElementById('feedback-correct').style.display = 'none';
+        }
+        if (document.getElementById('feedback-incorrect')) {
+          document.getElementById('feedback-incorrect').style.display = 'none';
+        }
+      </script>
+      `;
+      
       // Create a script tag for JS content if available
       const jsScript = currentSlide.jsContent ? 
         `<script>${currentSlide.jsContent}</script>` : '';
       
-      // Combine HTML, CSS and JS
-      const fullHtml = `${cssStyle}${content}${jsScript}`;
+      // Combine HTML, CSS, helper JS, and custom JS
+      const fullHtml = `${cssStyle}${content}${helperJs}${jsScript}`;
       
       // Use dangerouslySetInnerHTML to render the HTML content
       return (

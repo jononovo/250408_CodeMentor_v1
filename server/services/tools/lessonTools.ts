@@ -107,30 +107,57 @@ export async function getCurrentSlideContext(args: { lessonId: number, chatId: n
       throw new Error(`No slides found for lesson with ID ${lessonId}`);
     }
     
+    // Sort slides by order
+    const sortedSlides = slides.sort((a, b) => a.order - b.order);
+    
     // Look through messages to find references to specific slides
-    // This is a simple implementation - in a real app, you would use more sophisticated
-    // NLP techniques to determine the current context
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
       
       // Look for mentions of slide titles in recent messages
-      for (const slide of slides) {
-        if (message.content.includes(slide.title)) {
+      for (const slide of sortedSlides) {
+        if (message.content.toLowerCase().includes(slide.title.toLowerCase())) {
           return {
             currentSlide: slide,
-            allSlides: slides.sort((a, b) => a.order - b.order)
+            allSlides: sortedSlides
+          };
+        }
+      }
+      
+      // Look for mentions of specific slide types (challenge, quiz, etc.)
+      if (message.content.toLowerCase().includes('challenge slide') || 
+          message.content.toLowerCase().includes('coding exercise') ||
+          message.content.toLowerCase().includes('practice')) {
+        // Find the first challenge slide
+        const challengeSlide = sortedSlides.find(slide => slide.type === 'challenge');
+        if (challengeSlide) {
+          return {
+            currentSlide: challengeSlide,
+            allSlides: sortedSlides
+          };
+        }
+      }
+      
+      if (message.content.toLowerCase().includes('quiz') || 
+          message.content.toLowerCase().includes('test your knowledge')) {
+        // Find the first quiz slide
+        const quizSlide = sortedSlides.find(slide => slide.type === 'quiz');
+        if (quizSlide) {
+          return {
+            currentSlide: quizSlide,
+            allSlides: sortedSlides
           };
         }
       }
       
       // Look for mentions of slide numbers
-      for (let j = 0; j < slides.length; j++) {
+      for (let j = 0; j < sortedSlides.length; j++) {
         const slideNumber = j + 1;
-        if (message.content.includes(`slide ${slideNumber}`) || 
-            message.content.includes(`Slide ${slideNumber}`)) {
+        if (message.content.toLowerCase().includes(`slide ${slideNumber}`) || 
+            message.content.toLowerCase().includes(`slide ${slideNumber}:`)) {
           return {
-            currentSlide: slides[j],
-            allSlides: slides.sort((a, b) => a.order - b.order)
+            currentSlide: sortedSlides[j],
+            allSlides: sortedSlides
           };
         }
       }
@@ -138,8 +165,8 @@ export async function getCurrentSlideContext(args: { lessonId: number, chatId: n
     
     // Default to the first slide if no specific context is found
     return {
-      currentSlide: slides.sort((a, b) => a.order - b.order)[0],
-      allSlides: slides.sort((a, b) => a.order - b.order)
+      currentSlide: sortedSlides[0],
+      allSlides: sortedSlides
     };
   } catch (error: any) {
     console.error('[LessonTools] Error getting current slide context:', error);
