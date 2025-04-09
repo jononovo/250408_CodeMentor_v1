@@ -201,19 +201,18 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2">
                 <span className="text-primary text-xl">{agentPersona === 'mumu' ? '🐯' : '🐻'}</span>
               </div>
-              <div>
+              <h3 className="font-display font-medium leading-tight flex items-center">
+                {agentPersona === 'mumu' ? 'Mumu the Coding Ninja' : 'Baloo the Lesson Creator'}
                 <select
                   value={agentPersona}
                   onChange={(e) => setAgentPersona(e.target.value as 'mumu' | 'baloo')}
-                  className="text-primary text-xs font-medium px-1 py-0.5 mb-0.5 rounded-md bg-white/80 cursor-pointer border-none outline-none focus:ring-1 focus:ring-primary"
+                  className="ml-1 text-white text-xs font-medium border-none outline-none bg-transparent cursor-pointer focus:ring-0 appearance-none hover:opacity-80"
+                  style={{ padding: '0 12px 0 2px', background: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'8\' height=\'8\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23ffffff\' stroke-width=\'3\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E") no-repeat right center' }}
                 >
-                  <option value="mumu">Mumu the Coding Ninja</option>
-                  <option value="baloo">Baloo the Lesson Creator</option>
+                  <option value="mumu">Mumu</option>
+                  <option value="baloo">Baloo</option>
                 </select>
-                <h3 className="font-display font-medium leading-tight">
-                  {agentPersona === 'mumu' ? 'Mumu the Coding Ninja' : 'Baloo the Lesson Creator'}
-                </h3>
-              </div>
+              </h3>
             </div>
             <div className="flex">
               <button 
