@@ -50,14 +50,22 @@ export function useAI(lessonId?: string) {
   }, [lessonId]);
 
   // Send message to AI
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, persona?: 'mumu' | 'baloo') => {
     if (!chat || !content.trim()) return;
 
+    // Add persona context to the message before sending to backend
+    const contextualContent = 
+      persona === 'mumu' 
+        ? `[As Mumu the Coding Ninja 🐯] ${content}`
+        : persona === 'baloo'
+          ? `[As Baloo the Lesson Creator 🐻] ${content}`
+          : content;
+    
     // Temporary message for UI only, backend will create the real one
     const userMessage = {
       id: -1, // Temporary ID, will be replaced by the real one from the server
       role: 'user' as const,
-      content,
+      content, // Show the original content to the user (without persona context)
       timestamp: Date.now()
     };
 
@@ -67,8 +75,9 @@ export function useAI(lessonId?: string) {
     setError(null);
 
     try {
+      // Send the contextual content to the backend
       const response = await apiRequest('POST', `/api/chats/${chat.id}/messages`, {
-        content
+        content: contextualContent
       });
       
       const data = await response.json();

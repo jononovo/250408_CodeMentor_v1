@@ -31,13 +31,8 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !isLoading) {
-      // Add persona context to the beginning of the message to guide the AI's response style
-      const contextualMessage = 
-        agentPersona === 'mumu' 
-          ? `[As Mumu the Coding Ninja 🐯] ${message}`
-          : `[As Baloo the Lesson Creator 🐻] ${message}`;
-          
-      sendMessage(contextualMessage);
+      // Set the current persona in the hook state but don't add it to the visible message
+      sendMessage(message, agentPersona === 'mumu' ? 'mumu' : 'baloo');
       setMessage('');
     }
   };
@@ -93,7 +88,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         
         // Send a follow-up message to create the lesson with the selected style
         setTimeout(() => {
-          sendMessage(`[As Baloo the Lesson Creator 🐻] Create a new lesson about ${topic} with the ${style} style`);
+          sendMessage(`Create a new lesson about ${topic} with the ${style} style`, 'baloo');
         }, 500);
         
         // Remove the metadata from the message for display
@@ -344,7 +339,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                 <>
                                   <button 
                                     className="bg-amber-100 border border-amber-200 hover:bg-amber-200 text-amber-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Brown Markdown 🏖️ style for the lesson about ${topic}`)}
+                                    onClick={() => sendMessage(`Use the Brown Markdown 🏖️ style for the lesson about ${topic}`, 'baloo')}
                                   >
                                     <span className="text-lg mb-1">🏖️</span>
                                     <span className="font-medium">Brown Markdown</span>
@@ -353,7 +348,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                   
                                   <button 
                                     className="bg-indigo-100 border border-indigo-200 hover:bg-indigo-200 text-indigo-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Neon Racer 🏎️ style for the lesson about ${topic}`)}
+                                    onClick={() => sendMessage(`Use the Neon Racer 🏎️ style for the lesson about ${topic}`, 'baloo')}
                                   >
                                     <span className="text-lg mb-1">🏎️</span>
                                     <span className="font-medium">Neon Racer</span>
@@ -362,7 +357,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                   
                                   <button 
                                     className="bg-pink-100 border border-pink-200 hover:bg-pink-200 text-pink-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Interaction Galore 💃🏽 style for the lesson about ${topic}`)}
+                                    onClick={() => sendMessage(`Use the Interaction Galore 💃🏽 style for the lesson about ${topic}`, 'baloo')}
                                   >
                                     <span className="text-lg mb-1">💃🏽</span>
                                     <span className="font-medium">Interaction Galore</span>
@@ -371,7 +366,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                                   
                                   <button 
                                     className="bg-blue-100 border border-blue-200 hover:bg-blue-200 text-blue-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Practical Project Building 🚀 style for the lesson about ${topic}`)}
+                                    onClick={() => sendMessage(`Use the Practical Project Building 🚀 style for the lesson about ${topic}`, 'baloo')}
                                   >
                                     <span className="text-lg mb-1">🚀</span>
                                     <span className="font-medium">Practical Project</span>
@@ -391,7 +386,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                               <div className="mt-2">
                                 <button 
                                   className="w-full bg-green-100 border border-green-200 hover:bg-green-200 text-green-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                  onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] You decide the best style for the lesson about ${topic}`)}
+                                  onClick={() => sendMessage(`You decide the best style for the lesson about ${topic}`, 'baloo')}
                                 >
                                   <span className="text-lg mb-1">✨</span>
                                   <span className="font-medium">You decide!</span>
