@@ -324,16 +324,36 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                       <div dangerouslySetInnerHTML={{ __html: formatMessage(msg.content, msg.id) }} />
                       
                       {/* Check if this message contains a style selection request */}
-                      {msg.content.includes('__SUGGESTION__:STYLE_SELECT:') && (
+                      {(msg.content.includes('__SUGGESTION__:STYLE_SELECT:') || 
+                        msg.content.includes('Proposed Slides:') ||
+                        (msg.role === 'assistant' && msg.content.includes('lesson about') && !msg.content.includes('style'))) && (
                         <div className="mt-3">
                           <div className="mb-2 text-center">
                             <span className="text-sm font-semibold text-primary">Choose a style for your lesson:</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
-                            {/* Extract the topic from the suggestion */}
+                            {/* Extract the topic from the message content */}
                             {(() => {
-                              const match = msg.content.match(/__SUGGESTION__:STYLE_SELECT:([^_]+)$/);
-                              const topic = match ? match[1] : 'programming';
+                              // First try to extract from suggestion tag
+                              let match = msg.content.match(/__SUGGESTION__:STYLE_SELECT:([^_]+)$/);
+                              
+                              // If not found, try to extract from the message context
+                              if (!match) {
+                                // Try to find "lesson about X" pattern
+                                match = msg.content.match(/lesson (?:about|on) ([^.,!?:]+)/i);
+                                
+                                // Try to find "Introduction to X" as often found in slides
+                                if (!match) {
+                                  match = msg.content.match(/Introduction to ([^.,!?:]+)/i);
+                                }
+                                
+                                // Try to find topic in slide titles
+                                if (!match && msg.content.includes('Proposed Slides:')) {
+                                  match = msg.content.match(/Proposed Slides:[\s\S]*?([a-zA-Z]+ [a-zA-Z]+)/i);
+                                }
+                              }
+                              
+                              const topic = match ? match[1].trim() : 'programming';
                               
                               return (
                                 <>
@@ -379,8 +399,26 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                           
                           {/* "You decide!" option spans the full width */}
                           {(() => {
-                            const match = msg.content.match(/__SUGGESTION__:STYLE_SELECT:([^_]+)$/);
-                            const topic = match ? match[1] : 'programming';
+                            // First try to extract from suggestion tag
+                            let match = msg.content.match(/__SUGGESTION__:STYLE_SELECT:([^_]+)$/);
+                              
+                            // If not found, try to extract from the message context
+                            if (!match) {
+                              // Try to find "lesson about X" pattern
+                              match = msg.content.match(/lesson (?:about|on) ([^.,!?:]+)/i);
+                              
+                              // Try to find "Introduction to X" as often found in slides
+                              if (!match) {
+                                match = msg.content.match(/Introduction to ([^.,!?:]+)/i);
+                              }
+                              
+                              // Try to find topic in slide titles
+                              if (!match && msg.content.includes('Proposed Slides:')) {
+                                match = msg.content.match(/Proposed Slides:[\s\S]*?([a-zA-Z]+ [a-zA-Z]+)/i);
+                              }
+                            }
+                            
+                            const topic = match ? match[1].trim() : 'programming';
                             
                             return (
                               <div className="mt-2">
