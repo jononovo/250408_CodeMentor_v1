@@ -360,6 +360,11 @@ When the user asks for changes to the lesson or requests new content, use these 
   }
 
   private isNewLessonRequest(message: string): boolean {
+    // First check if it's a style selection message - if so, it's not a new lesson request
+    if (this.isStyleSelectionMessagePattern(message)) {
+      return false;
+    }
+    
     const createPatterns = [
       /create (a|new|an?)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
       /make (a|new)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
@@ -375,7 +380,26 @@ When the user asks for changes to the lesson or requests new content, use these 
     return createPatterns.some(pattern => pattern.test(message));
   }
   
+  // Helper method to detect style selection patterns
+  private isStyleSelectionMessagePattern(message: string): boolean {
+    // Check for explicit style selection patterns
+    const stylePatterns = [
+      /use the (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️) style/i,
+      /you decide the best style/i,
+      /pick the .* style/i,
+      /choose the .* style/i,
+      /select style/i,
+      /prefer the .* style/i
+    ];
+    return stylePatterns.some(pattern => pattern.test(message));
+  }
+  
   private isStyleSelectionMessage(message: string): boolean {
+    // First check for explicit style selection patterns
+    if (this.isStyleSelectionMessagePattern(message)) {
+      return true;
+    }
+    
     // Check if it's a style selection message
     const lowerMsg = message.toLowerCase();
     
@@ -395,6 +419,11 @@ When the user asks for changes to the lesson or requests new content, use these 
          lowerMsg.includes('interaction') || lowerMsg.includes('galore') ||
          lowerMsg.includes('practical') || lowerMsg.includes('project')) && 
         !this.isNewLessonRequest(message)) {
+      return true;
+    }
+    
+    // Check for "use the ... style" pattern which is now used by our buttons
+    if (lowerMsg.includes('use the') && lowerMsg.includes('style for the lesson about')) {
       return true;
     }
     
