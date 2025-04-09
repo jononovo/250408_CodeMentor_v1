@@ -122,9 +122,28 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         topic = topicMatch[1].trim();
       }
       
+      // Remove the "Choose a Style" section from the content
+      const styleSection = content.indexOf('## 🎨 Choose a Style:');
+      if (styleSection !== -1) {
+        content = content.substring(0, styleSection).trim();
+      }
+      
       // Append style selection buttons
       content += `\n\n__SUGGESTION__:STYLE_SELECT:${topic}`;
     }
+    
+    // Improve formatting for section headers and line spacing
+    content = content.replace(/\n(#+\s+[^\n]+)/g, '\n\n$1');
+    content = content.replace(/\n\*\*([^*\n]+)\*\*/g, '\n\n**$1**');
+    
+    // Ensure there's proper spacing between paragraphs
+    content = content.replace(/\n\n\n+/g, '\n\n');
+    content = content.replace(/([^\n])\n([^\n])/g, '$1\n\n$2');
+    
+    // Style section headers with larger font and background color
+    content = content.replace(/#+\s+([^\n]+)/g, (match, title) => {
+      return `<div class="bg-primary/10 p-2 rounded-md mb-3 mt-4"><span class="font-bold text-primary">${title}</span></div>`;
+    });
     
     // Handle code blocks
     let formattedContent = content;
@@ -311,50 +330,74 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                       
                       {/* Check if this message contains a style selection request */}
                       {msg.content.includes('__SUGGESTION__:STYLE_SELECT:') && (
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          {/* Extract the topic from the suggestion */}
+                        <div className="mt-3">
+                          <div className="mb-2 text-center">
+                            <span className="text-sm font-semibold text-primary">Choose a style for your lesson:</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* Extract the topic from the suggestion */}
+                            {(() => {
+                              const match = msg.content.match(/__SUGGESTION__:STYLE_SELECT:([^_]+)$/);
+                              const topic = match ? match[1] : 'programming';
+                              
+                              return (
+                                <>
+                                  <button 
+                                    className="bg-amber-100 border border-amber-200 hover:bg-amber-200 text-amber-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
+                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Brown Markdown 🏖️ style for the lesson about ${topic}`)}
+                                  >
+                                    <span className="text-lg mb-1">🏖️</span>
+                                    <span className="font-medium">Brown Markdown</span>
+                                    <span className="text-xs text-amber-600 mt-1">Relaxed & earthy</span>
+                                  </button>
+                                  
+                                  <button 
+                                    className="bg-indigo-100 border border-indigo-200 hover:bg-indigo-200 text-indigo-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
+                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Neon Racer 🏎️ style for the lesson about ${topic}`)}
+                                  >
+                                    <span className="text-lg mb-1">🏎️</span>
+                                    <span className="font-medium">Neon Racer</span>
+                                    <span className="text-xs text-indigo-600 mt-1">Vibrant & energetic</span>
+                                  </button>
+                                  
+                                  <button 
+                                    className="bg-pink-100 border border-pink-200 hover:bg-pink-200 text-pink-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
+                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Interaction Galore 💃🏽 style for the lesson about ${topic}`)}
+                                  >
+                                    <span className="text-lg mb-1">💃🏽</span>
+                                    <span className="font-medium">Interaction Galore</span>
+                                    <span className="text-xs text-pink-600 mt-1">Interactive & fun</span>
+                                  </button>
+                                  
+                                  <button 
+                                    className="bg-blue-100 border border-blue-200 hover:bg-blue-200 text-blue-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
+                                    onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Practical Project Building 🚀 style for the lesson about ${topic}`)}
+                                  >
+                                    <span className="text-lg mb-1">🚀</span>
+                                    <span className="font-medium">Practical Project</span>
+                                    <span className="text-xs text-blue-600 mt-1">Progressive & hands-on</span>
+                                  </button>
+                                </>
+                              )
+                            })()}
+                          </div>
+                          
+                          {/* "You decide!" option spans the full width */}
                           {(() => {
                             const match = msg.content.match(/__SUGGESTION__:STYLE_SELECT:([^_]+)$/);
                             const topic = match ? match[1] : 'programming';
                             
                             return (
-                              <>
+                              <div className="mt-2">
                                 <button 
-                                  className="bg-amber-100 border border-amber-200 hover:bg-amber-200 text-amber-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                  onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Brown Markdown 🏖️ style for the lesson about ${topic}`)}
+                                  className="w-full bg-green-100 border border-green-200 hover:bg-green-200 text-green-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
+                                  onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] You decide the best style for the lesson about ${topic}`)}
                                 >
-                                  <span className="text-lg mb-1">🏖️</span>
-                                  <span className="font-medium">Brown Markdown</span>
-                                  <span className="text-xs text-amber-600 mt-1">Relaxed & earthy</span>
+                                  <span className="text-lg mb-1">✨</span>
+                                  <span className="font-medium">You decide!</span>
+                                  <span className="text-xs text-green-600 mt-1">Pick the best style for this topic</span>
                                 </button>
-                                
-                                <button 
-                                  className="bg-indigo-100 border border-indigo-200 hover:bg-indigo-200 text-indigo-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                  onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Neon Racer 🏎️ style for the lesson about ${topic}`)}
-                                >
-                                  <span className="text-lg mb-1">🏎️</span>
-                                  <span className="font-medium">Neon Racer</span>
-                                  <span className="text-xs text-indigo-600 mt-1">Vibrant & energetic</span>
-                                </button>
-                                
-                                <button 
-                                  className="bg-pink-100 border border-pink-200 hover:bg-pink-200 text-pink-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                  onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Interaction Galore 💃🏽 style for the lesson about ${topic}`)}
-                                >
-                                  <span className="text-lg mb-1">💃🏽</span>
-                                  <span className="font-medium">Interaction Galore</span>
-                                  <span className="text-xs text-pink-600 mt-1">Interactive & fun</span>
-                                </button>
-                                
-                                <button 
-                                  className="bg-blue-100 border border-blue-200 hover:bg-blue-200 text-blue-800 py-2 px-3 rounded-md text-xs transition-colors flex flex-col items-center"
-                                  onClick={() => sendMessage(`[As Baloo the Lesson Creator 🐻] Use the Practical Project Building 🚀 style for the lesson about ${topic}`)}
-                                >
-                                  <span className="text-lg mb-1">🚀</span>
-                                  <span className="font-medium">Practical Project</span>
-                                  <span className="text-xs text-blue-600 mt-1">Progressive & hands-on</span>
-                                </button>
-                              </>
+                              </div>
                             )
                           })()}
                         </div>
