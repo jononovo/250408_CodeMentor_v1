@@ -157,7 +157,9 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
           );
           
           // If there's already an emoji, don't add another one
-          if (/[\p{Emoji}]/u.test(surroundingText)) {
+          // Simple emoji check using specific common emojis
+          if (surroundingText.includes('😀') || surroundingText.includes('🐻') || 
+              surroundingText.includes('🐯') || surroundingText.includes('✨')) {
             return match;
           }
           
@@ -181,7 +183,10 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         const lastParagraphIndex = formattedContent.lastIndexOf('\n\n');
         if (lastParagraphIndex > -1) {
           const lastParagraph = formattedContent.slice(lastParagraphIndex);
-          if (!lastParagraph.match(/[\p{Emoji}]/u)) {
+          // Simple emoji check using common emojis
+          if (!lastParagraph.includes('😀') && !lastParagraph.includes('🐻') && 
+              !lastParagraph.includes('🐯') && !lastParagraph.includes('✨') &&
+              !lastParagraph.includes('🎊') && !lastParagraph.includes('🚀')) {
             const randomPhrase = enthusiasticPhrases[Math.floor(Math.random() * enthusiasticPhrases.length)];
             formattedContent = formattedContent.slice(0, lastParagraphIndex) + 
                                lastParagraph.replace(/([.!?])(\s*)$/, `$1${randomPhrase}$2`);
@@ -320,8 +325,8 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
               <div className="mb-2 py-1 bg-gray-50 rounded-md">
                 {(!lessonId || messages.length === 0) && (
                   <div className="flex flex-wrap px-1">
-                    {/* Baloo-specific suggestions */}
-                    {agentPersona === 'baloo' && (
+                    {/* Persona-specific suggestion buttons */}
+                    {agentPersona === 'baloo' ? (
                       <>
                         <button 
                           className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
@@ -360,28 +365,34 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                           Teaching tips
                         </button>
                       </>
-                    )}
-
-                    {/* Mumu-specific suggestions */}
-                    {agentPersona === 'mumu' && (
+                    ) : (
                       <>
                         <button 
                           className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
                           onClick={() => {
-                            setMessage("Explain the concept of ");
+                            setMessage("Help me understand ");
                             setTimeout(() => inputRef.current?.focus(), 0);
                           }}
                         >
-                          Explain a concept
+                          Explain concept
                         </button>
                         <button 
                           className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
                           onClick={() => {
-                            setMessage("Help me debug this code: ");
+                            setMessage("Fix this code for me: ");
                             setTimeout(() => inputRef.current?.focus(), 0);
                           }}
                         >
-                          Debug help
+                          Debug code
+                        </button>
+                        <button 
+                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                          onClick={() => {
+                            setMessage("Give me a coding challenge for ");
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                          }}
+                        >
+                          Coding challenge
                         </button>
                         <button 
                           className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
@@ -390,16 +401,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                             setTimeout(() => inputRef.current?.focus(), 0);
                           }}
                         >
-                          How to use this platform
-                        </button>
-                        <button 
-                          className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                          onClick={() => {
-                            setMessage("Suggest a coding challenge for ");
-                            setTimeout(() => inputRef.current?.focus(), 0);
-                          }}
-                        >
-                          Get a coding challenge
+                          Platform help
                         </button>
                       </>
                     )}
