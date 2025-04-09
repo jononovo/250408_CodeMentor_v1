@@ -201,25 +201,37 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                   <div className="flex flex-wrap px-1">
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("Create a new lesson about")}
+                      onClick={() => {
+                        setMessage("Create a new lesson about ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       Create a new lesson
                     </button>
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("Explain the concept of")}
+                      onClick={() => {
+                        setMessage("Explain the concept of ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       Explain a concept
                     </button>
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("How can I use this platform to")}
+                      onClick={() => {
+                        setMessage("How can I use this platform to ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       How to use this platform
                     </button>
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("Suggest a coding challenge for")}
+                      onClick={() => {
+                        setMessage("Suggest a coding challenge for ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       Get a coding challenge
                     </button>
@@ -231,19 +243,28 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                   <div className="flex flex-wrap px-1">
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("Update this slide with more interactive elements")}
+                      onClick={() => {
+                        setMessage("Update this slide with more interactive elements ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       Improve this slide
                     </button>
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("Help me understand this code: ")}
+                      onClick={() => {
+                        setMessage("Help me understand this code: ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       Explain this code
                     </button>
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => setMessage("Give me a hint for this challenge")}
+                      onClick={() => {
+                        setMessage("Give me a hint for this challenge ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
                     >
                       Get a hint
                     </button>
