@@ -85,6 +85,78 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
       return `<code class="bg-gray-100 px-1 py-0.5 rounded text-primary-700 font-mono">${code}</code>`;
     });
     
+    // Make messages more upbeat with emojis if they're from the assistant
+    if (!content.includes('__SUGGESTION__') && messageId !== -1) {
+      // Add emojis to common phrases if not already present
+      const emojifyPhrases = [
+        { phrase: /\b(hello|hi|hey)\b/i, emoji: '👋' },
+        { phrase: /\b(great|awesome|excellent|amazing)\b/i, emoji: '🎉' },
+        { phrase: /\b(try|attempt)\b/i, emoji: '💪' },
+        { phrase: /\b(code|coding|program)\b/i, emoji: '💻' },
+        { phrase: /\b(javascript|js)\b/i, emoji: '🟨' },
+        { phrase: /\b(python)\b/i, emoji: '🐍' },
+        { phrase: /\b(html)\b/i, emoji: '🌐' },
+        { phrase: /\b(css)\b/i, emoji: '🎨' },
+        { phrase: /\b(learn|understand)\b/i, emoji: '🧠' },
+        { phrase: /\b(lesson|tutorial)\b/i, emoji: '📚' },
+        { phrase: /\b(challenge|exercise|practice)\b/i, emoji: '🏋️‍♀️' },
+        { phrase: /\b(fun|enjoy|cool)\b/i, emoji: '😎' },
+        { phrase: /\b(good job|well done)\b/i, emoji: '👏' },
+        { phrase: /\b(tip|hint|advice)\b/i, emoji: '💡' },
+        { phrase: /\b(error|bug|issue|problem)\b/i, emoji: '🐛' },
+        { phrase: /\b(fix|solve|solution)\b/i, emoji: '🔧' },
+        { phrase: /\b(interactive)\b/i, emoji: '🎮' },
+        { phrase: /\b(data|variable|value)\b/i, emoji: '📊' },
+        { phrase: /\b(function|method)\b/i, emoji: '⚙️' },
+        { phrase: /\b(array|list)\b/i, emoji: '📋' }
+      ];
+      
+      formattedContent = formattedContent.replace(/^\s*I'd be happy to/i, "I'd be super happy to 🤩");
+      formattedContent = formattedContent.replace(/\b(sure|certainly)\b/i, "Absolutely! 🙌");
+      
+      // Replace common phrases with emojified versions if they don't already have emojis
+      emojifyPhrases.forEach(({ phrase, emoji }) => {
+        formattedContent = formattedContent.replace(phrase, (match) => {
+          // Check if there's already an emoji within 2 characters of the match
+          const surroundingText = formattedContent.slice(
+            Math.max(0, formattedContent.indexOf(match) - 2), 
+            Math.min(formattedContent.length, formattedContent.indexOf(match) + match.length + 2)
+          );
+          
+          // If there's already an emoji, don't add another one
+          if (/[\p{Emoji}]/u.test(surroundingText)) {
+            return match;
+          }
+          
+          return `${match} ${emoji}`;
+        });
+      });
+      
+      // Add random enthusiastic phrases at the end of messages
+      if (Math.random() < 0.3 && !formattedContent.includes('__SUGGESTION__')) {
+        const enthusiasticPhrases = [
+          " Super duper! 🎊",
+          " Woohoo! 🥳",
+          " Let's rock this! 🤘",
+          " That's pawsome! 🐾",
+          " Tiger-tastic! 🐯✨",
+          " Coding magic! ✨",
+          " High five! 🙌"
+        ];
+        
+        // Only add to ends of paragraphs that don't have emojis
+        const lastParagraphIndex = formattedContent.lastIndexOf('\n\n');
+        if (lastParagraphIndex > -1) {
+          const lastParagraph = formattedContent.slice(lastParagraphIndex);
+          if (!lastParagraph.match(/[\p{Emoji}]/u)) {
+            const randomPhrase = enthusiasticPhrases[Math.floor(Math.random() * enthusiasticPhrases.length)];
+            formattedContent = formattedContent.slice(0, lastParagraphIndex) + 
+                               lastParagraph.replace(/([.!?])(\s*)$/, `$1${randomPhrase}$2`);
+          }
+        }
+      }
+    }
+    
     return formattedContent;
   };
 
@@ -117,12 +189,12 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
         </Button>
       ) : (
         <div className="bg-white rounded-lg shadow-lg w-[400px] max-h-[600px] flex flex-col overflow-hidden">
-          <div className="bg-primary text-white p-3 flex items-center justify-between">
+          <div className="bg-primary/80 text-white p-3 flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2">
-                <span className="text-primary font-bold">M</span>
+                <span className="text-primary text-xl">🐯</span>
               </div>
-              <h3 className="font-display font-medium">Mumu the Coding Mentor</h3>
+              <h3 className="font-display font-medium">Mumu the Coding Tiger</h3>
             </div>
             <div className="flex">
               <button 
@@ -148,7 +220,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                   {msg.role !== 'user' && (
                     <div className="flex-shrink-0 mr-3">
                       <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-primary font-bold">M</span>
+                        <span className="text-primary text-xl">🐯</span>
                       </div>
                     </div>
                   )}
@@ -179,7 +251,7 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
               <div className="flex items-start">
                 <div className="flex-shrink-0 mr-3">
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="text-primary font-bold">M</span>
+                    <span className="text-primary text-xl">🐯</span>
                   </div>
                 </div>
                 <div className="bg-gray-100 rounded-lg p-3 max-w-[85%]">
@@ -207,42 +279,6 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                       }}
                     >
                       Create a new lesson
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Create a Brown Markdown 🏖️ lesson about ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Brown Markdown 🏖️
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Create an Interaction Galore 💃🏽 lesson about ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Interaction Galore 💃🏽
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Create a Practical Project Building 🚀 lesson about ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Project Building 🚀
-                    </button>
-                    <button 
-                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
-                      onClick={() => {
-                        setMessage("Create a Neon Racer 🏎️ lesson about ");
-                        setTimeout(() => inputRef.current?.focus(), 0);
-                      }}
-                    >
-                      Neon Racer 🏎️
                     </button>
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
