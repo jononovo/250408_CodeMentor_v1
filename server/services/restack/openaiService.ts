@@ -19,16 +19,17 @@ class RestackOpenAIService {
   async generateLesson(
     topic: string,
     difficulty: string = 'beginner',
-    format: string = 'html'
+    format: string = 'html',
+    style?: string
   ) {
     try {
-      console.log(`[AI Service] Generating lesson about "${topic}" with difficulty "${difficulty}"`);
+      console.log(`[AI Service] Generating lesson about "${topic}" with difficulty "${difficulty}" and style "${style || 'default'}"`);
       
       // Create basic lesson structure
       const language = this.detectLanguageFromTopic(topic);
-      const title = this.generateTitle(topic, difficulty);
+      const title = this.generateTitle(topic, difficulty, style);
       
-      console.log(`[AI Service] Using language: ${language}, title: ${title}`);
+      console.log(`[AI Service] Using language: ${language}, title: ${title}, style: ${style || 'default'}`);
       
       // Insert the new lesson
       const lesson = await storage.createLesson({
@@ -92,17 +93,19 @@ class RestackOpenAIService {
       
       // Check if this is a request to create a new lesson
       if (this.isNewLessonRequest(message)) {
-        // Extract topic and difficulty from message
+        // Extract topic, difficulty and style from message
         const topic = this.extractTopicFromMessage(message);
         const difficulty = this.extractDifficultyFromMessage(message);
+        const style = this.extractLessonStyle(message);
         
         try {
-          // Generate a new lesson in HTML format by default
-          const lesson = await this.generateLesson(topic, difficulty, 'html');
+          // Generate a new lesson in HTML format by default with the specified style
+          const lesson = await this.generateLesson(topic, difficulty, 'html', style);
           
           // Format response with lesson details and ID for redirect
           // Using the format expected by ChatPanel: __LESSON_CREATED__:lessonId:lessonTitle
-          response = `I've created a new lesson about ${topic}. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
+          let styleText = style ? ` using the ${style} style` : '';
+          response = `I've created a new lesson about ${topic}${styleText}. It's ready for you to explore!\n\n__LESSON_CREATED__:${lesson.id}:${lesson.title}`;
         } catch (error: any) {
           console.error('Error creating new lesson:', error);
           response = `I'm sorry, I couldn't create a lesson about ${topic}. Error: ${error.message}`;
@@ -295,18 +298,35 @@ When the user asks for changes to the lesson or requests new content, use these 
 
   private isNewLessonRequest(message: string): boolean {
     const createPatterns = [
-      /create (a|new)? lesson/i,
-      /make (a|new)? lesson/i,
-      /generate (a|new)? lesson/i,
+      /create (a|new|an?)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
+      /make (a|new)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
+      /generate (a|new)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
       /teach me (about|how to)/i,
-      /create (a|an)? tutorial/i,
-      /build (a|an)? lesson/i,
-      /new lesson/i,
-      /lesson (about|on)/i,
-      /can you (make|create) a/i,
-      /create a tutorial/i
+      /create (a|an)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?tutorial/i,
+      /build (a|an)? (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
+      /new (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson/i,
+      /(Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?lesson (about|on)/i,
+      /can you (make|create) a (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?/i,
+      /create a (Brown Markdown 🏖️|Interaction Galore 💃🏽|Practical Project Building 🚀|Neon Racer 🏎️)? ?tutorial/i
     ];
     return createPatterns.some(pattern => pattern.test(message));
+  }
+  
+  private extractLessonStyle(message: string): string | undefined {
+    const stylePatterns = [
+      { pattern: /Brown Markdown 🏖️/i, style: 'brown-markdown' },
+      { pattern: /Interaction Galore 💃🏽/i, style: 'interaction-galore' },
+      { pattern: /Practical Project Building 🚀/i, style: 'project-building' },
+      { pattern: /Neon Racer 🏎️/i, style: 'neon-racer' }
+    ];
+    
+    for (const { pattern, style } of stylePatterns) {
+      if (pattern.test(message)) {
+        return style;
+      }
+    }
+    
+    return undefined;
   }
 
   private extractTopicFromMessage(message: string): string {
@@ -426,9 +446,24 @@ When the user asks for changes to the lesson or requests new content, use these 
     return "JavaScript"; // Default
   }
 
-  private generateTitle(topic: string, difficulty: string): string {
-    // This is a placeholder - in a real implementation, you would generate a more
-    // engaging title based on the topic and difficulty
+  private generateTitle(topic: string, difficulty: string, style?: string): string {
+    // Add style-specific title prefixes or formatting
+    if (style) {
+      switch (style) {
+        case 'brown-markdown':
+          return `Beach Learning: ${this.capitalizeFirstLetter(topic)} - ${this.capitalizeFirstLetter(difficulty)} Level 🏖️`;
+        case 'interaction-galore':
+          return `Interactive ${this.capitalizeFirstLetter(topic)} - ${this.capitalizeFirstLetter(difficulty)} Dance 💃🏽`;
+        case 'project-building':
+          return `Building with ${this.capitalizeFirstLetter(topic)} - ${this.capitalizeFirstLetter(difficulty)} Project 🚀`;
+        case 'neon-racer':
+          return `${this.capitalizeFirstLetter(topic)} Racing - ${this.capitalizeFirstLetter(difficulty)} Track 🏎️`;
+        default:
+          break;
+      }
+    }
+    
+    // Default title if no style is specified
     return `Learning ${this.capitalizeFirstLetter(topic)} - ${this.capitalizeFirstLetter(difficulty)} Level`;
   }
 

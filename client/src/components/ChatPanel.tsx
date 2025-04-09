@@ -211,6 +211,42 @@ export default function ChatPanel({ lessonId, onNewLesson }: ChatPanelProps) {
                     <button 
                       className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
                       onClick={() => {
+                        setMessage("Create a Brown Markdown 🏖️ lesson about ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
+                    >
+                      Brown Markdown 🏖️
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => {
+                        setMessage("Create an Interaction Galore 💃🏽 lesson about ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
+                    >
+                      Interaction Galore 💃🏽
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => {
+                        setMessage("Create a Practical Project Building 🚀 lesson about ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
+                    >
+                      Project Building 🚀
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => {
+                        setMessage("Create a Neon Racer 🏎️ lesson about ");
+                        setTimeout(() => inputRef.current?.focus(), 0);
+                      }}
+                    >
+                      Neon Racer 🏎️
+                    </button>
+                    <button 
+                      className="bg-primary/5 hover:bg-primary/10 text-primary py-1 px-2 rounded-md text-xs transition-colors mr-1 mb-1"
+                      onClick={() => {
                         setMessage("Explain the concept of ");
                         setTimeout(() => inputRef.current?.focus(), 0);
                       }}
